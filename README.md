@@ -1,136 +1,168 @@
-# Hedwig
+<p align="center">
+  <img src="docs/assets/owl.svg" width="80" alt="">
+</p>
 
-Hedwig sends multi-step email sequences from mailboxes you already own, at a safe pace, inside a sending window in the
-timezone you choose. It reads the replies back, stops a sequence the moment someone answers, labels each reply with an AI
-agent, and shows what was delivered, opened and answered. Self-hosted, no contact cap, and it never relays mail through a
-third party: every email leaves through your mailbox's own SMTP or the Microsoft Graph API.
+<h1 align="center">Hedwig</h1>
 
-## What it does
+<p align="center">
+  <b>Your B2B email campaigns, free and simplified.</b><br>
+  Email sequences from the mailboxes you already own. You can control Hedwig and analyze your campaigns from Claude Code or Codex.
+</p>
 
-- **Mailboxes**: any provider with IMAP and SMTP (Titan, Zoho, Google Workspace, IONOS, Hostinger, iCloud, your own server)
-  connects with the mailbox password. The servers are detected from the domain's MX record. Microsoft 365 connects through
-  Microsoft's consent screen instead, because Microsoft no longer accepts passwords over IMAP. Passwords and tokens are
-  encrypted at rest (AES-256-GCM). SPF, DKIM and DMARC are checked daily with the exact record to add.
-- **Campaigns**: import a CSV or Excel file of any size, map columns to variables, dedupe against the campaign and your
-  suppression list. Write up to twelve steps with `{{variables|fallbacks}}`, bold, links and lists; follow-ups go out in the
-  same thread. Test sends, previews with real rows, duplicate a campaign without its leads.
-- **Sending**: a window (for example 09:00–17:00 Monday to Friday, in the campaign's timezone), a daily limit per campaign,
-  a daily limit per mailbox shared across campaigns (counted per calendar day in the mailbox's own timezone), a warm-up
-  ramp for new mailboxes (10 a day, +5 a week), sends spread across the window with jitter, never a burst. Leads are split
-  across the campaign's mailboxes and pinned to one for the whole sequence.
-- **Replies**: the inbox of every mailbox is read every two minutes. A reply is matched to its lead by conversation id
-  (Microsoft), by the Message-ID headers Hedwig put on its own emails, or by the sender's address. Replies stop the
-  sequence; bounces stop it and suppress the address; out-of-office notes are recognised and, by default, ignored. A
-  mailbox pauses itself when bounces reach 5% of a week's sends (editable, or off).
-- **Inbox**: every conversation that got an answer, filtered by status, agent label and campaign. Reply from the mailbox
-  that holds the thread, threaded on their last message; set the lead's status from the thread.
-- **Reply agent**: a built-in "Triage" agent reads each reply once and labels its sentiment: interested, meeting,
-  question, not interested, out of office, bounce, unsubscribe, other. The labels come from Jev, TypeSafe's classifier, when
-  its key is set; Gemini labels when there is no key or Jev can't answer (a rejected key, no room, an outage). Drafts always
-  come from Gemini. Interested, meeting, not interested and unsubscribe set
-  the lead's status when the agent is at least 75% sure; once you set a status by hand the agent leaves that lead alone.
-  Interested and meeting email the campaign's owner. On request the agent drafts an answer for you to edit and send. An
-  agent never sends anything by itself.
-- **Curious**: once a day, people who opened a campaign's emails more often than they got them (two emails, three opens)
-  and never replied are flagged curious, apart from their status. A reply clears it; you can set or reset it by hand.
-- **Analytics**: sent, opens (once per email, machine prefetch discounted), replies, bounces, opportunities; per day, per
-  step, per mailbox, per campaign. Each open by a person is recorded with its time.
-- **Teams**: organisations with owners and members, invitations by email, a personal space for things nobody else sees.
+<p align="center">
+  <a href="https://flyhedwig.com"><b>flyhedwig.com</b></a> ·
+  <a href="#start">Start</a> ·
+  <a href="docs/self-hosting.md">Self-host</a> ·
+  <a href="docs/mcp.md">Agent setup</a>
+</p>
 
-## Research with an assistant
+<p align="center">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-FFD400?style=flat-square&labelColor=0D1432"></a>
+  <img alt="Works with Claude Code" src="https://img.shields.io/badge/works%20with-Claude%20Code-F1EDE3?style=flat-square&labelColor=0D1432">
+  <img alt="Works with Codex" src="https://img.shields.io/badge/works%20with-Codex-F1EDE3?style=flat-square&labelColor=0D1432">
+  <img alt="Self-hosted with Docker" src="https://img.shields.io/badge/self--hosted-Docker-2F5BFF?style=flat-square&labelColor=0D1432">
+</p>
 
-Connect ChatGPT, Claude, or another remote MCP client from **Connections**. The assistant researches with its available tools and saves structured, sourced results to **Research** tables. Add typed enrichment columns, protect manual edits, deduplicate contacts, and enroll snapshots into a draft or paused campaign. Read status and statistics, pause, configure, start and resume through the same connection. Sending requires a separate permission.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/campaigns-dark.png">
+  <img alt="Hedwig's Campaigns screen with five example campaigns: two active, one paused, one completed, one draft" src="docs/assets/campaigns-light.png">
+</picture>
 
-Hedwig supplies OAuth sign-in using your existing account; no enrichment subscription or external identity service is required. Deploy behind HTTPS and use the canonical `/mcp` endpoint. See [setup, permissions, tools and recovery](docs/mcp.md). Existing campaign data stays in place; new collections/indexes are additive. Pause active campaigns before modifying sending content or recipients.
+## The idea
 
-## Run it locally
+A sequence is simple: a first email, a few follow-ups, and a stop the moment someone answers. What makes it work is
+where it is sent from and how carefully. Hedwig handles both, and lets your agent do the rest.
 
-Node 22 and a MongoDB (local, Docker, or Atlas).
+- **Your mailbox sends it.** Hedwig connects to the mailboxes you already have and sends through them, the way you would
+  by hand. No shared sending servers, no borrowed reputation.
+- **Hedwig keeps a human pace.** A few dozen emails a day per mailbox, spread over working hours in the timezone you pick.
+  New mailboxes start slow and speed up week by week.
+- **Replies come back to you.** Every inbox is read every two minutes. Whoever answers leaves the sequence, and their reply
+  arrives labelled: interested, meeting, question, not interested.
+- **Your agent does the busywork.** Claude Code or Codex can build the list, write the openers, launch the campaign and
+  tell you what is working.
 
-```bash
-cp .env.example .env        # MONGODB_URI, HEDWIG_MASTER_KEY, BOOTSTRAP_USER_EMAIL, BOOTSTRAP_USER_PASSWORD at least
-npm install
-npm run dev                 # web on http://localhost:5180
-npm run worker              # in another terminal: the scheduler (sender, inbox sync, agent, DNS checks)
+## How a campaign runs
+
+```mermaid
+flowchart TB
+  subgraph sending ["Sending"]
+    direction LR
+    list["Your list<br/>CSV, Excel, or your agent's research"] --> campaign["Campaign<br/>up to 12 steps"]
+    campaign --> pace["Pace<br/>window, daily limits, ramp-up"]
+    pace --> mailbox["Your mailbox<br/>its own SMTP or Microsoft 365"]
+  end
+  subgraph replies ["Replies"]
+    direction LR
+    inbox["Inbox check<br/>every 2 minutes"] --> stop["Sequence stops"]
+    inbox --> agent["Reply agent<br/>label + draft"]
+    agent --> you["You press send"]
+  end
+  sending --> person(("Prospect"))
+  person -->|replies| replies
 ```
 
-Sign in with the bootstrap user, connect a mailbox on Emails, create a campaign, import a list, write the steps, pick a
-mailbox in Options, activate. `npm run check` and `npm test` before a pull request (`tests/db` needs the MongoDB in `.env`
-and uses the database `hedwig_test`).
+## One lead, start to finish
 
-## Deploy
+```mermaid
+sequenceDiagram
+  participant H as Hedwig
+  participant M as Your mailbox
+  participant P as Prospect
+  H->>M: Day 0: step 1, inside the sending window
+  M->>P: Quick question about wholesale
+  H->>M: Day 3: step 2, in the same thread
+  M->>P: Re: Quick question about wholesale
+  P-->>M: Sure, send me your price list
+  M-->>H: Read within two minutes
+  Note over H,M: Stops the sequence, labels it Interested, drafts an answer for you
+  H--xP: Day 7: step 3 is never sent
+```
 
-Hedwig is one Node service plus MongoDB. The web server and the worker run as two processes; `npm start` runs both in one
-container, which is the simplest setup. Run exactly one worker: it is the only scheduler.
+## Control and analyze it from your terminal
 
-**Docker Compose** (app + MongoDB, the quickest self-hosted way):
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/terminal-dark.png">
+  <img alt="A Claude Code session: it researches 600 coffee roasters, builds a draft campaign on three mailboxes, starts it, and a week later reports 600 sent, 41 replies and 12 interested" src="docs/assets/terminal-light.png">
+</picture>
+
+Connect once:
 
 ```bash
-cp .env.example .env        # fill it in; MONGODB_URI is set for you
+# Claude Code: then type /mcp in a session to sign in
+claude mcp add --transport http hedwig https://flyhedwig.com/mcp
+
+# Codex
+codex mcp add hedwig --url https://flyhedwig.com/mcp
+codex mcp login hedwig
+```
+
+Running your own server? Use its address instead of flyhedwig.com. Then ask in plain words:
+
+> How is the roasters campaign doing? Which mailbox and which step get the most replies?
+
+> Who replied interested this week? Draft answers, I'll send them.
+
+> Pause the campaign, add these 200 contacts and show me step 2 for the first one.
+
+<details>
+<summary><b>Everything the agent can reach</b></summary>
+
+| Area | What it can do |
+| --- | --- |
+| Campaigns | Create, edit, preview, test-send, start, pause, clone, statistics |
+| Leads | Enroll, enrich, correct, requeue, remove |
+| Research | Tables where each fact keeps its source |
+| Inbox | Read threads, label, draft, send the replies you ask for |
+| Mailboxes | Daily limit, timezone, ramp-up, DNS check |
+| Workspace | Members, invitations, reply agents |
+
+Starting a campaign and sending a reply are separate permissions you grant when you connect. Mailbox passwords never pass
+through the agent. More in [docs/mcp.md](docs/mcp.md).
+
+</details>
+
+## Ideas
+
+- Write to 200 agencies from three mailboxes, a few dozen a day each, so none of them gets flagged.
+- Follow up with everyone you met at a trade show, during their working hours, in their timezone.
+- Let your agent research the list and write the openers; keep the send button for yourself.
+- Hand a teammate the Inbox: replies arrive labelled, with a draft waiting.
+
+## Start
+
+**Hosted.** Sign up at [flyhedwig.com](https://flyhedwig.com).
+
+**On your own server.** You need Docker.
+
+```bash
+git clone https://github.com/gabrilator/hedwig && cd hedwig
+cp .env.example .env          # set ORIGIN, HEDWIG_MASTER_KEY and the first user
 docker compose up -d --build
 ```
 
-The app listens on port 3000. Put a reverse proxy with HTTPS in front of it (Caddy is two lines) and set `ORIGIN` to that
-address. Back up the `mongo-data` volume.
+Open the address you set as `ORIGIN` and sign in. Every setting, and Microsoft 365, is in
+[docs/self-hosting.md](docs/self-hosting.md).
 
-**Any platform that builds from a repository** (Coolify, Railway, Render, Fly, Dokku and the like): point it at this
-repository, build with the Dockerfile (or `npm run build` + `npm start` on Node 22 with a Debian-based image), expose port
-3000, give it a MongoDB (a managed one or a database resource on the same platform) and the environment below.
+**Then, either way:**
 
-**Environment**: `MONGODB_URI` (required) · `MONGODB_DB` (default `hedwig`) · `ORIGIN` (the one address the app lives on;
-forms only work there, and Hedwig redirects every other host of yours to it) · `TRACKING_BASE_URL` (pixels and unsubscribe
-links; can equal `ORIGIN`) · `HEDWIG_MASTER_KEY` (32 random bytes in base64; needed before the first mailbox; never change
-it afterwards or every connected mailbox becomes unreadable) · `BODY_SIZE_LIMIT=25M` (large imports) ·
-`BOOTSTRAP_USER_EMAIL` + `BOOTSTRAP_USER_PASSWORD` (the first user, created once) · `BOOTSTRAP_ORG_NAME` (optional) ·
-`TYPESAFE_API_KEY` (optional: Jev labels replies; console.typesafe.ai → API keys) · `GEMINI_API_KEY` (drafts, and the
-labels whenever Jev is not set or can't answer; with neither key replies are matched and stopped but not labelled) · `GEMINI_DAILY_CAP`
-(optional, default 300 model calls a day, Jev and Gemini together) · `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` (Microsoft 365 mailboxes,
-below) · `RESEND_API_KEY` + `LOGIN_FROM` (optional: Hedwig's own emails to its users go through Resend; otherwise through the
-first connected mailbox).
+1. **Emails**: connect a mailbox with its address and password (Microsoft 365 uses Microsoft's own sign-in).
+2. **Campaigns**: create one and import your list under **Leads**.
+3. **Sequence**: write the steps, with `{{firstName|there}}` style variables.
+4. **Schedule** and **Options**: set the sending window, pick the mailboxes, then press **Activate**.
 
-`/health` answers `{"ok":true,"db":true,"worker":{"alive":true}}` when everything runs. The Setup screen shows the worker's
-heartbeat, every scheduled job, the last runs and the agent's model calls.
+## Good to know
 
-## Connect with Microsoft (Microsoft 365 only, one-time setup)
+- Every email leaves through your own mailbox: its SMTP server, or Microsoft 365. Hedwig never relays mail.
+- Any mailbox with IMAP and SMTP works. Passwords and tokens are encrypted before they are stored.
+- An agent labels and drafts. It never sends anything by itself.
+- How each part works, and the rules the code keeps: [docs/how-it-works.md](docs/how-it-works.md).
 
-Microsoft ended password logins for IMAP in 2022, so Microsoft 365 mailboxes connect through a consent screen. That needs
-an app registration in your Microsoft tenant, once, five minutes; afterwards any Microsoft mailbox connects with a click.
-In the Entra admin center:
+## Contributing
 
-1. App registrations → **New registration**. Any name. Supported account types: *Accounts in any organizational directory
-   and personal Microsoft accounts*. Redirect URI (Web): `https://<your ORIGIN>/emails/microsoft/callback`
-   (for local development add `http://localhost:5180/emails/microsoft/callback`).
-2. Overview → copy **Application (client) ID** → `MS_CLIENT_ID`. Leave `MS_TENANT_ID=common` (any Microsoft account) or set
-   your tenant id to restrict it to your organisation.
-3. Certificates & secrets → New client secret → copy the **Value** → `MS_CLIENT_SECRET`.
-4. API permissions → Add → Microsoft Graph → Delegated: `User.Read`, `Mail.ReadWrite`, `Mail.Send`, `offline_access`
-   → **Grant admin consent**.
-5. Put the values in the environment, restart, open **Emails → Connect with Microsoft**.
-
-Nothing has to be switched on in Exchange: Hedwig sends and reads through the Graph API.
-
-## How it works inside
-
-- **Planner** (every minute): for each active campaign whose window is open in its own timezone, books today's missing sends
-  spread across the remaining window with jitter, within the campaign's daily limit and each mailbox's daily limit and ramp.
-  Follow-ups that are due take the first slots.
-- **Sender** (same tick): claims one due send at a time with an atomic update, renders the variables, sends through the
-  lead's mailbox (SMTP with Hedwig's own Message-ID, a copy appended to the Sent folder over IMAP; or Graph, where
-  follow-ups are `createReply` so they thread), records the event. Provider ids are stored *before* the send, so a crash is
-  repaired by the reconciler from the Sent folder and a step is never sent twice.
-- **Inbox sync** (every two minutes): Graph delta or IMAP UIDs since last time; match, classify (bounce, out of office,
-  reply), update the lead, cancel the remaining steps, suppress on bounce or unsubscribe; then hand new replies to the agent.
-- **Reply agent**: a reply is claimed atomically before the model is called, so it is labelled once (Jev, or Gemini when Jev can't answer),
-  retried at most twice after a failure, and never in parallel; a draft is at most one more Gemini call; a hard daily cap
-  stops runaway usage. A status set by hand is final: the classifier skips that lead.
-- **Tracking**: one pixel per email on the tracking host; each person's opens recorded with their time, prefetch discounted.
-  `List-Unsubscribe` and `List-Unsubscribe-Post` headers on every real send from an IMAP/SMTP mailbox, so mail clients show
-  their own unsubscribe link; an optional unsubscribe line per campaign.
-- **Counts**: every number on a screen is a count on the `events` collection, kept in `dailyStats` and re-derived hourly.
-
-Stack: SvelteKit (adapter-node), MongoDB, Agenda for the worker, Luxon for timezones, Nodemailer and ImapFlow for mail,
-Jev and Gemini for the agent. The rules the code keeps are in `CLAUDE.md`.
+`npm install`, then `npm run dev` and `npm run worker` in two terminals. Run `npm run check` and `npm test` before a pull
+request. The rules the code follows are in `CLAUDE.md`, so your coding agent follows them too.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT. See [LICENSE](LICENSE).

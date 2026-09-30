@@ -1,7 +1,7 @@
 # Hedwig — instructions for every AI session
 
-Hedwig is a self-hosted email outreach tool: SvelteKit (adapter-node) + MongoDB + one Agenda worker. What it does, how to run
-and deploy it: `README.md`. Everything a user sees is theirs to edit (org names, member roles, their own name, the agent's
+Hedwig is a self-hosted email outreach tool: SvelteKit (adapter-node) + MongoDB + one Agenda worker. What it does: `README.md`; how to run
+and deploy it: `docs/self-hosting.md`; how each part works: `docs/how-it-works.md`. Everything a user sees is theirs to edit (org names, member roles, their own name, the agent's
 persona). No company, product, school or domain name is hardwired in the UI, the agent, the defaults, the tests or the docs.
 
 ## THE LAWS
