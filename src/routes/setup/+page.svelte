@@ -15,8 +15,6 @@
       <div class="bd stack" style="font-size:12px;color:var(--mute);line-height:1.6;gap:10px">
         {#if !data.llm.configured}
           <div class="note red"><b>No model key on the server.</b> Replies are matched and stopped but not labelled until one is in the server's environment: <code>TYPESAFE_API_KEY</code> (Jev, from console.typesafe.ai → API keys) labels replies, <code>GEMINI_API_KEY</code> (aistudio.google.com → API keys) writes drafts and labels when Jev is not set. Restart after adding one.</div>
-        {:else if !data.llm.jev}
-          <p style="margin:0">Gemini labels and drafts. Add <code>TYPESAFE_API_KEY</code> (console.typesafe.ai → API keys) to have Jev label replies instead; Gemini then only writes drafts.</p>
         {:else if !data.llm.gemini}
           <p style="margin:0">Jev labels replies. Drafts, and a stand-in when Jev can't answer, need <code>GEMINI_API_KEY</code> (aistudio.google.com → API keys).</p>
         {:else}
