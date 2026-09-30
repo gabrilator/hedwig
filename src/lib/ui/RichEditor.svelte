@@ -57,7 +57,7 @@
   .rte-link .in { width: 260px; padding: 4px 8px; font-size: 12px; }
   .rte-body { min-height: 300px; font-family: var(--sans); font-size: 14px; line-height: 1.55; outline: none; white-space: pre-wrap; word-break: break-word; }
   .rte-body:empty::before { content: attr(data-placeholder); color: var(--mute); opacity: .7; }
-  .rte-body :global(a) { color: var(--yellow); }
+  .rte-body :global(a) { color: var(--hot); }
   .rte-body :global(p), .rte-body :global(div) { margin: 0 0 .9em; }
   .rte-body :global(ul), .rte-body :global(ol) { margin: 0 0 .9em 1.2em; }
 </style>

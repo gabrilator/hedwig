@@ -160,7 +160,7 @@
               {#if m.subject && m.direction === 'in'}<div class="lbl" style="margin-bottom:6px;text-transform:none;letter-spacing:0">{m.subject}</div>{/if}
               {#snippet messageBody()}
               {#if m.html}<div class="body">{@html m.html}</div>{:else}<div class="body" style="white-space:pre-wrap">{m.text.slice(0, 6000)}{m.text.length > 6000 ? '…' : ''}</div>{/if}
-              {#if m.opens?.length}<div class="lbl" style="margin-top:8px;letter-spacing:.06em;text-transform:none;color:var(--yellow)">opened ×{m.opens.length} · {m.opens.map((o: string) => fmtDT(o)).join(' · ')}</div>{/if}
+              {#if m.opens?.length}<div class="lbl" style="margin-top:8px;letter-spacing:.06em;text-transform:none;color:var(--hot)">opened ×{m.opens.length} · {m.opens.map((o: string) => fmtDT(o)).join(' · ')}</div>{/if}
               {#if m.error}<div class="r" style="margin-top:6px;font-family:var(--mono);font-size:11px">{m.error}</div>{/if}
               {/snippet}
               {#if m.direction === 'out' && m.kind === 'sent'}

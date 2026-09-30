@@ -6,6 +6,7 @@
   import Owl from '$lib/ui/Owl.svelte';
   import Flight from '$lib/ui/Flight.svelte';
   import { fly } from '$lib/ui/motion.svelte';
+  import { readTheme, theme, toggleTheme } from '$lib/ui/theme.svelte';
 
   let { children, data } = $props();
   const nav = [
@@ -20,6 +21,7 @@
   const active = (href: string) => page.url.pathname === href || page.url.pathname.startsWith(href + '/');
 
   onMount(() => {
+    readTheme();
     if (data.user && !sessionStorage.getItem('hedwig-flew')) { setTimeout(() => fly(), 700); sessionStorage.setItem('hedwig-flew', '1'); }
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.matches?.('input,textarea,select,[contenteditable]') || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -54,14 +56,14 @@
         </form>
         <div class="who">
           {data.user.email}<br>
-          <a href="/setup" class:y={page.url.pathname === '/setup'}>setup</a> · <form method="POST" action="/logout"><button class="linkbtn" type="submit">sign out</button></form>
+          <a href="/setup" class:y={page.url.pathname === '/setup'}>setup</a> · {#if theme.known}<button class="linkbtn" type="button" onclick={toggleTheme}>{theme.light ? 'dark' : 'light'}</button>{' · '}{/if}<form method="POST" action="/logout"><button class="linkbtn" type="submit">sign out</button></form>
         </div>
       </div>
     </aside>
     <main class="main">
       <div class="mtop">
         <button class="logo" type="button" onclick={() => { fly(); goto('/campaigns'); }}><Owl size={30} /><span class="word disp">Hedwig</span></button>
-        <a class="orgsw" href="/team">{data.space?.name} ▾</a>
+        <span class="mtop-r">{#if theme.known}<button class="linkbtn mute" type="button" onclick={toggleTheme}>{theme.light ? 'dark' : 'light'}</button>{/if}<a class="orgsw" href="/team">{data.space?.name} ▾</a></span>
       </div>
       {@render children()}
     </main>
