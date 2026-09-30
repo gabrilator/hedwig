@@ -21,6 +21,8 @@ export const masterKeyProblem = (): string | null => {
   if (Buffer.from(raw, 'base64').length !== 32) return 'HEDWIG_MASTER_KEY is not 32 bytes in base64. Generate a new one and restart.';
   return null;
 };
+/** The public home page at / for signed-out visitors (off: / goes to the login). Meant for a hosted instance, not a private one. */
+export const landingPage = () => /^(1|true|on|yes)$/i.test(envOpt('HEDWIG_LANDING') ?? '');
 export const microsoftConfigured = () => !!(envOpt('MS_CLIENT_ID') && envOpt('MS_CLIENT_SECRET'));
 export const resendConfigured = () => !!envOpt('RESEND_API_KEY');
 export const trackingBase = () => (envOpt('TRACKING_BASE_URL') ?? env('ORIGIN')).replace(/\/$/, '');

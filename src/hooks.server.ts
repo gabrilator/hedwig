@@ -17,7 +17,7 @@ async function boot() {
   await bootstrap(db);
 }
 
-const PUBLIC = [/^\/mcp$/, /^\/oauth\/(token|register|revoke)$/, /^\/\.well-known\/oauth-(authorization-server|protected-resource)(\/mcp)?$/, /^\/login$/, /^\/signup$/, /^\/t\//, /^\/u\//, /^\/health$/, /^\/favicon\.svg$/];
+const PUBLIC = [/^\/$/, /^\/mcp$/, /^\/oauth\/(token|register|revoke)$/, /^\/\.well-known\/oauth-(authorization-server|protected-resource)(\/mcp)?$/, /^\/login$/, /^\/signup$/, /^\/t\//, /^\/u\//, /^\/health$/, /^\/favicon\.svg$/];
 
 export const handle: Handle = async ({ event, resolve }) => {
   // One canonical host: forms only work where Origin equals ORIGIN, so every other host of ours sends people there.
