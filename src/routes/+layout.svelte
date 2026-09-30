@@ -56,7 +56,7 @@
         </form>
         <div class="who">
           {data.user.email}<br>
-          <a href="/setup" class:y={page.url.pathname === '/setup'}>setup</a> · {#if theme.known}<button class="linkbtn" type="button" onclick={toggleTheme}>{theme.light ? 'dark' : 'light'}</button>{' · '}{/if}<form method="POST" action="/logout"><button class="linkbtn" type="submit">sign out</button></form>
+          <a href="/setup" class:y={page.url.pathname === '/setup'}>setup</a> · {#if data.isAdmin}<a href="/admin" class:y={page.url.pathname === '/admin'}>admin</a>{' · '}{/if}{#if theme.known}<button class="linkbtn" type="button" onclick={toggleTheme}>{theme.light ? 'dark' : 'light'}</button>{' · '}{/if}<form method="POST" action="/logout"><button class="linkbtn" type="submit">sign out</button></form>
         </div>
       </div>
     </aside>

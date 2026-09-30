@@ -2,7 +2,7 @@ import type { Db } from 'mongodb';
 import { ObjectId } from 'mongodb';
 import { cols } from './db';
 import { hashPassword, randomToken, sha256, verifyPassword } from './crypto';
-import { envOpt } from './env';
+import { envOpt, isAdminEmail } from './env';
 import type { UserDoc } from './types';
 
 export const SESSION_COOKIE = 'hedwig_session';
@@ -16,6 +16,8 @@ export async function signup(db: Db, input: { email: string; name: string; passw
   const c = cols(db);
   const email = normalizeEmail(input.email);
   if (!passwordOk(input.password)) throw new Error('Password must be at least 6 characters');
+  // Sign-up does not verify addresses, so an admin address could otherwise be claimed by whoever registers it first.
+  if (isAdminEmail(email)) throw new Error('This address cannot sign up here. Log in instead.');
   const existing = await c.users.findOne({ email });
   if (existing) throw new Error('There is already an account with that email. Log in instead.');
   const doc = { _id: new ObjectId(), email, name: input.name.trim() || email.split('@')[0], passwordHash: await hashPassword(input.password), createdAt: new Date() };

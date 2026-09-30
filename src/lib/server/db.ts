@@ -63,6 +63,7 @@ export function ensureIndexes(d: Db): Promise<void> {
       d.collection('oauthTokens').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       d.collection('oauthLimits').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       c.users.createIndex({ email: 1 }, { unique: true }),
+      c.users.createIndex({ createdAt: -1 }),
       c.sessions.createIndex({ tokenHash: 1 }, { unique: true }),
       c.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       c.orgs.createIndex({ 'members.userId': 1 }),

@@ -26,7 +26,8 @@ forms only work there, and Hedwig redirects every other host of yours to it) · 
 links; can equal `ORIGIN`) · `HEDWIG_MASTER_KEY` (32 random bytes in base64; needed before the first mailbox; never change
 it afterwards or every connected mailbox becomes unreadable) · `BODY_SIZE_LIMIT=25M` (large imports) · `HEDWIG_LANDING=1` (optional: a public home page at `/` for signed-out
 visitors, with sign-up and the Claude Code and Codex setup for this address; without it `/` goes to the login) · `UMAMI_WEBSITE_ID` (optional: visit counts for that home page in
-Umami) ·
+Umami) · `ADMIN_EMAILS` (optional: comma-separated addresses that may open `/admin`, every account on the server; the
+account must already exist, because sign-up refuses these addresses) ·
 `BOOTSTRAP_USER_EMAIL` + `BOOTSTRAP_USER_PASSWORD` (the first user, created once) · `BOOTSTRAP_ORG_NAME` (optional) ·
 `TYPESAFE_API_KEY` (optional: Jev labels replies; console.typesafe.ai → API keys) · `GEMINI_API_KEY` (drafts, and the
 labels whenever Jev is not set or can't answer; with neither key replies are matched and stopped but not labelled) · `GEMINI_DAILY_CAP`

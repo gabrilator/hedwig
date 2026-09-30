@@ -7,7 +7,7 @@ persona). No company, product, school or domain name is hardwired in the UI, the
 ## THE LAWS
 1. **Hedwig never relays mail.** Every send goes through a connected mailbox (the mailbox's own SMTP, or Microsoft Graph).
    No SES, SendGrid, Mailgun, Postmark, Resend for outreach. Resend is only for Hedwig's own emails to its users (team
-   invites, the "someone is interested" note), via `sendSystemMail`.
+   invites, the "someone is interested" note, the new sign-up note to admins), via `sendSystemMail`.
 2. **IMAP/SMTP with the mailbox password is the default path; Microsoft 365 is the one exception and connects by OAuth**
    (Microsoft killed password IMAP in 2022). Never ask for, store or log a Microsoft password. Other providers' passwords
    and every refresh token are sealed with `HEDWIG_MASTER_KEY` (AES-256-GCM).
@@ -21,6 +21,7 @@ persona). No company, product, school or domain name is hardwired in the UI, the
 5. **Every number on a screen equals a count on `events`.** Screens read `dailyStats` ($inc at event time, re-derived hourly).
    Nothing scans `events` or `sends` in a request handler beyond bounded, indexed queries.
 6. **Scoping is structural.** Routes go through `ctx(locals)` and `ownedCampaign/ownedAccount`; every scoped document carries `space`.
+   The one read across every space is `/admin` (`src/lib/server/admin.ts`), for the addresses in `ADMIN_EMAILS` only.
 7. **The worker is the only scheduler** (`src/worker/index.ts`, Agenda on `agendaJobs`). Never start crons in the SvelteKit server.
    The web enqueues work by inserting an Agenda-shaped job (`src/lib/server/jobs.ts`).
 8. **Motion is a courtesy:** short, never blocking, off under `prefers-reduced-motion`.

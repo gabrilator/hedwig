@@ -25,6 +25,9 @@ export const masterKeyProblem = (): string | null => {
 export const landingPage = () => /^(1|true|on|yes)$/i.test(envOpt('HEDWIG_LANDING') ?? '');
 /** Umami website id for visit counts on the public home page; only this instance's own setting, never in the code. */
 export const umamiWebsiteId = () => { const v = envOpt('UMAMI_WEBSITE_ID'); return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null; };
+/** Addresses that may open /admin (every account on the server). Sign-up refuses them, so the account must already exist. */
+export const adminEmails = () => (envOpt('ADMIN_EMAILS') ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+export const isAdminEmail = (email: string | null | undefined) => !!email && adminEmails().includes(email.trim().toLowerCase());
 export const microsoftConfigured = () => !!(envOpt('MS_CLIENT_ID') && envOpt('MS_CLIENT_SECRET'));
 export const resendConfigured = () => !!envOpt('RESEND_API_KEY');
 export const trackingBase = () => (envOpt('TRACKING_BASE_URL') ?? env('ORIGIN')).replace(/\/$/, '');
