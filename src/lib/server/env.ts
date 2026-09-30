@@ -23,6 +23,8 @@ export const masterKeyProblem = (): string | null => {
 };
 /** The public home page at / for signed-out visitors (off: / goes to the login). Meant for a hosted instance, not a private one. */
 export const landingPage = () => /^(1|true|on|yes)$/i.test(envOpt('HEDWIG_LANDING') ?? '');
+/** Umami website id for visit counts on the public home page; only this instance's own setting, never in the code. */
+export const umamiWebsiteId = () => { const v = envOpt('UMAMI_WEBSITE_ID'); return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null; };
 export const microsoftConfigured = () => !!(envOpt('MS_CLIENT_ID') && envOpt('MS_CLIENT_SECRET'));
 export const resendConfigured = () => !!envOpt('RESEND_API_KEY');
 export const trackingBase = () => (envOpt('TRACKING_BASE_URL') ?? env('ORIGIN')).replace(/\/$/, '');

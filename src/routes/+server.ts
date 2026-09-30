@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import landing from '$lib/landing/landing.html?raw';
-import { envOpt, landingPage } from '$lib/server/env';
+import { envOpt, landingPage, umamiWebsiteId } from '$lib/server/env';
 
 /** Signed in: the campaigns. Signed out: the public home page when HEDWIG_LANDING is on, else the login. */
 export const GET: RequestHandler = ({ locals }) => {
@@ -10,6 +10,8 @@ export const GET: RequestHandler = ({ locals }) => {
   const origin = (envOpt('ORIGIN') ?? '').replace(/\/$/, '');
   let host = origin;
   try { host = new URL(origin).host; } catch { /* ORIGIN unset or not a URL: show it as it is */ }
-  const html = landing.replaceAll('%ORIGIN%', origin).replaceAll('%HOST%', host);
+  const umami = umamiWebsiteId();
+  const analytics = umami ? `<script defer src="https://cloud.umami.is/script.js" data-website-id="${umami}"></script>` : '';
+  const html = landing.replace('%ANALYTICS%', analytics).replaceAll('%ORIGIN%', origin).replaceAll('%HOST%', host);
   return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' } });
 };
