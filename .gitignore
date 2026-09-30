@@ -1,0 +1,11 @@
+node_modules
+/build
+/build-worker
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+.DS_Store
+/coverage
+/tmp
