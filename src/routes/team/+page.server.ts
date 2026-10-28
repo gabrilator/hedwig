@@ -140,6 +140,7 @@ export const actions: Actions = {
     await col.suppressions.deleteMany({ space });
     await col.agents.deleteMany({ space });
     await col.llmCalls.deleteMany({ space });
+    await col.feedTokens.deleteMany({ space });
     await col.invites.deleteMany({ orgId });
     await col.orgs.deleteOne({ _id: orgId });
     if (c.space.key === space) cookies.set(SPACE_COOKIE, personalSpace(c.user._id), { path: '/', httpOnly: true, sameSite: 'lax', secure: secureCookies(), maxAge: 60 * 60 * 24 * 365 });

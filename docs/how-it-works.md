@@ -33,6 +33,46 @@ The details behind each screen, and the rules the code keeps.
 - **Analytics**: sent, opens (once per email, machine prefetch discounted), replies, bounces, opportunities; per day, per
   step, per mailbox, per campaign. Each open by a person is recorded with its time.
 - **Teams**: organisations with owners and members, invitations by email, a personal space for things nobody else sees.
+- **Results feed**: a secret link per workspace serves its results as two CSV files, for a spreadsheet or another app to
+  read without signing in. Made, replaced and turned off under Setup. See [Results feed](#results-feed).
+
+## Results feed
+
+**Setup → Results feed → Make a link** creates a secret link for the workspace you are in. It serves two read-only files
+to anyone who has it:
+
+- `/feed/<token>/leads.csv`: one row per lead in the workspace's campaigns, newest campaign first, then by email. Columns:
+  `campaign, email, lead_id, branch, segment, status, agent_label, first_sent_at, last_sent_at, steps_sent, opens,
+  replied_at, curious`. `lead_id`, `branch` and `segment` are the lead's variables of those names, empty when it has none
+  (a CSV column called `lead_id` is imported as `leadId`, which counts too). `status` is the lead's status, including one a
+  person set; `agent_label` is the reply agent's latest label. `opens` counts a person's opens across all steps.
+  `replied_at` is the first reply; bounces and out-of-office notes don't count.
+- `/feed/<token>/daily.csv`: one row per campaign per day for the last 180 days, oldest first. A day with nothing to count
+  has no row. Columns: `date, campaign, sent, opens, replies, interested, meetings, bounces`. Sent, opens (emails opened),
+  replies and bounces are the Analytics numbers, from `dailyStats`. Interested and meetings count leads whose status is
+  interested or meeting now, on the day they first replied, so changing a status moves them.
+
+Days and times are UTC, written `2026-10-28 14:03:00` so a spreadsheet reads them as dates. There is no email text,
+subject or credential in either file. leads.csv stops at 50,000 rows.
+
+The link is shown once: Hedwig keeps only a hash of it, like its other credentials. **Make a new link** replaces it and
+**Turn off** removes it; either way the old link stops working at once. A link also stops working when the person who made
+it leaves the workspace. Each link answers 30 requests a minute.
+
+### In Google Sheets
+
+Give each file its own tab and put the formula in cell A1:
+
+```
+=IMPORTDATA("https://hedwig.example.com/feed/<token>/leads.csv")
+```
+
+and the same with `daily.csv` in the other tab. When Setup makes the link it shows both formulas, each with a copy button.
+Google fetches the file again about every hour. To fetch it at once, edit the formula, for example by adding `?1` to the
+end of the address.
+
+Anyone with the link can read these leads and numbers, and anyone who can open the sheet can see the formula. Make a new
+link if it gets out. An app or an agent can read the same two addresses with a plain GET, no sign-in or header needed.
 
 ## How it works inside
 

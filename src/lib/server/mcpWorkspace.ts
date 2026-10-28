@@ -59,7 +59,7 @@ export function registerWorkspaceTools(db: Db, actor: Actor, register: RegisterT
     if (org.name !== a.confirmName) throw new OperationError('invalid_input', 'confirmName must match the organization.');
     if (await c.campaigns.findOne({ space: actor.space, status: 'active' })) throw new OperationError('campaign_busy', 'Pause every campaign first.');
     if (await c.sends.findOne({ space: actor.space, $or: [{ status: { $in: ['claimed', 'unknown'] } }, { inFlight: true }, { status: 'planned', ids: { $exists: true } }] }) || await c.messages.findOne({ space: actor.space, status: 'sending' })) throw new OperationError('send_in_flight', 'Wait for all sends to settle.');
-    for (const name of ['sends', 'leads', 'messages', 'events', 'dailyStats', 'imports', 'campaigns', 'emailAccounts', 'suppressions', 'agents', 'llmCalls', 'researchTables', 'contacts']) await db.collection(name).deleteMany({ space: actor.space });
+    for (const name of ['sends', 'leads', 'messages', 'events', 'dailyStats', 'imports', 'campaigns', 'emailAccounts', 'suppressions', 'agents', 'llmCalls', 'researchTables', 'contacts', 'feedTokens']) await db.collection(name).deleteMany({ space: actor.space });
     await c.invites.deleteMany({ orgId: org._id });
     await db.collection('oauthGrants').updateMany({ space: actor.space }, { $set: { revokedAt: new Date() } });
     await c.orgs.deleteOne({ _id: org._id }); return { deleted: true, name: org.name };

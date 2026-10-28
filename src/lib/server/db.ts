@@ -1,7 +1,7 @@
 import { MongoClient, type Db } from 'mongodb';
 import { env } from './env';
 import type {
-  AgentDoc, CampaignDoc, DailyStatDoc, DomainDoc, EmailAccountDoc, EventDoc, HeartbeatDoc, ImportDoc, InviteDoc,
+  AgentDoc, CampaignDoc, DailyStatDoc, DomainDoc, EmailAccountDoc, EventDoc, FeedTokenDoc, HeartbeatDoc, ImportDoc, InviteDoc,
   JobRunDoc, LeadDoc, LlmCallDoc, MessageDoc, MigrationDoc, OAuthStateDoc, OrgDoc, SendDoc, SessionDoc, SuppressionDoc, UserDoc
 } from './types';
 
@@ -42,6 +42,7 @@ export function cols(d: Db) {
     oauthStates: d.collection<OAuthStateDoc>('oauthStates'),
     llmCalls: d.collection<LlmCallDoc>('llmCalls'),
     migrations: d.collection<MigrationDoc>('migrations'),
+    feedTokens: d.collection<FeedTokenDoc>('feedTokens'),
     agendaJobs: d.collection('agendaJobs')
   };
 }
@@ -105,6 +106,8 @@ export function ensureIndexes(d: Db): Promise<void> {
       d.collection('listImports').createIndex({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 6 }),
       c.imports.createIndex({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 6 }),
       c.oauthStates.createIndex({ createdAt: 1 }, { expireAfterSeconds: 60 * 15 }),
+      c.feedTokens.createIndex({ tokenHash: 1 }, { unique: true }),
+      c.feedTokens.createIndex({ space: 1 }, { unique: true }),
       c.domains.createIndex({ checkedAt: 1 })
     ]);
   })();

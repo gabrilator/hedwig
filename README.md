@@ -156,6 +156,8 @@ Open the address you set as `ORIGIN` and sign in. Every setting, and Microsoft 3
 - Every email leaves through your own mailbox: its SMTP server, or Microsoft 365. Hedwig never relays mail.
 - Any mailbox with IMAP and SMTP works. Passwords and tokens are encrypted before they are stored.
 - An agent labels and drafts. It never sends anything by itself.
+- A secret link under Setup serves a workspace's results as CSV, for a spreadsheet's `=IMPORTDATA`:
+  [docs/how-it-works.md](docs/how-it-works.md#results-feed).
 - How each part works, and the rules the code keeps: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Contributing

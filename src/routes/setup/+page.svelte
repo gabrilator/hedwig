@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ago } from '$lib/ui/format';
   import Connections from '$lib/ui/Connections.svelte';
+  import Feed from '$lib/ui/Feed.svelte';
   let { data, form } = $props();
 </script>
 <svelte:head><title>Setup · Hedwig</title></svelte:head>
@@ -28,7 +29,10 @@
     </div>
     <Connections {data} {form} />
   </div>
-  {#if data.worker}
-    <div class="panel" style="align-self:start"><div class="hd"><h3>Worker</h3><span class="light" class:on={!data.worker.stale}><i></i>{data.worker.stale ? 'Offline' : 'Running'}{#if data.worker.ageSec !== null} · {data.worker.ageSec}s ago{/if}</span></div></div>
-  {/if}
+  <div class="stack" style="align-self:start">
+    <Feed {data} {form} />
+    {#if data.worker}
+      <div class="panel"><div class="hd"><h3>Worker</h3><span class="light" class:on={!data.worker.stale}><i></i>{data.worker.stale ? 'Offline' : 'Running'}{#if data.worker.ageSec !== null} · {data.worker.ageSec}s ago{/if}</span></div></div>
+    {/if}
+  </div>
 </div>

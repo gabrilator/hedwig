@@ -4,7 +4,7 @@ import { env as dyn } from '$env/dynamic/private';
 import { cols, ensureIndexes, getDb } from '$lib/server/db';
 import { SESSION_COOKIE, SPACE_COOKIE, bootstrap, userForToken } from '$lib/server/auth';
 import { pickSpace, spacesFor } from '$lib/server/scope';
-import { canonicalRedirect, csrfBlocked } from '$lib/server/host';
+import { canonicalRedirect, csrfBlocked, isPublicPath } from '$lib/server/host';
 import { envOpt } from '$lib/server/env';
 
 // SvelteKit exposes .env through $env/dynamic/private; the shared server code reads process.env, so mirror it once.
@@ -16,8 +16,6 @@ async function boot() {
   await ensureIndexes(db);
   await bootstrap(db);
 }
-
-const PUBLIC = [/^\/$/, /^\/mcp$/, /^\/oauth\/(token|register|revoke)$/, /^\/\.well-known\/oauth-(authorization-server|protected-resource)(\/mcp)?$/, /^\/login$/, /^\/signup$/, /^\/t\//, /^\/u\//, /^\/health$/, /^\/favicon\.svg$/];
 
 export const handle: Handle = async ({ event, resolve }) => {
   // One canonical host: forms only work where Origin equals ORIGIN, so every other host of ours sends people there.
@@ -42,7 +40,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.locals.space = null;
   }
   const p = event.url.pathname;
-  const isPublic = PUBLIC.some((re) => re.test(p));
+  const isPublic = isPublicPath(p);
   if (!user && !isPublic) redirect(303, `/login?next=${encodeURIComponent(p + event.url.search)}`);
   if (user && (p === '/login' || p === '/signup')) redirect(303, '/campaigns');
   return resolve(event);

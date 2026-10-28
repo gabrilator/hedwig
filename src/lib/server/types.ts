@@ -321,3 +321,13 @@ export interface ImportDoc {
   createdAt: Date;
 }
 export interface OAuthStateDoc { _id: string; userId: ObjectId; space: SpaceKey; codeVerifier: string; createdAt: Date }
+/** The results feed's link for one workspace. Only the token's SHA-256 is kept, so the link is shown once, when it is made. */
+export interface FeedTokenDoc {
+  _id: ObjectId;
+  space: SpaceKey;
+  tokenHash: string;
+  /** the feed works while this person is still in the workspace */
+  createdBy: ObjectId;
+  createdAt: Date;
+  lastUsedAt?: Date;
+}

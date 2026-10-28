@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalRedirect, csrfBlocked } from '../../src/lib/server/host';
+import { canonicalRedirect, csrfBlocked, isPublicPath } from '../../src/lib/server/host';
 
 const ORIGIN = 'https://app.example.com';
 
@@ -46,5 +46,19 @@ describe('csrfBlocked', () => {
     expect(csrfBlocked('POST', 'application/x-www-form-urlencoded', null, '/u/token123', O)).toBe(false);
     expect(csrfBlocked('POST', 'application/x-www-form-urlencoded', 'https://track.example.com', '/u/token123', O)).toBe(false);
     expect(csrfBlocked('POST', 'application/x-www-form-urlencoded', null, '/unsubscribe-ish', O)).toBe(true);
+  });
+});
+
+describe('isPublicPath', () => {
+  it('lets the results feed through without a session, and nothing else under /feed', () => {
+    expect(isPublicPath('/feed/AbC_123-xyz/leads.csv')).toBe(true);
+    expect(isPublicPath('/feed/AbC_123-xyz/daily.csv')).toBe(true);
+    expect(isPublicPath('/feed/AbC_123-xyz/other.csv')).toBe(false);
+    expect(isPublicPath('/feed/AbC_123-xyz')).toBe(false);
+    expect(isPublicPath('/feed/a/b/leads.csv')).toBe(false);
+  });
+  it('keeps the screens behind sign-in and the existing public paths open', () => {
+    for (const p of ['/', '/mcp', '/login', '/signup', '/t/o/x.gif', '/u/tok', '/health', '/oauth/token', '/.well-known/oauth-protected-resource/mcp']) expect(isPublicPath(p)).toBe(true);
+    for (const p of ['/setup', '/campaigns', '/inbox', '/admin', '/oauth/authorize']) expect(isPublicPath(p)).toBe(false);
   });
 });
