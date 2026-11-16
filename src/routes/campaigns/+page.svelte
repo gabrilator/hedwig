@@ -40,7 +40,7 @@
       <tbody>
         {#each data.campaigns as cp}
           <tr class="row" onclick={() => (location.href = `/campaigns/${cp.id}/analytics`)}>
-            <td class="full nolbl"><a class="nm" href="/campaigns/{cp.id}/analytics" style="text-decoration:none">{cp.name}</a><span class="sm">{cp.steps} step{cp.steps === 1 ? '' : 's'} · {cp.timezone}{#if cp.windowNote} · {cp.windowNote}{/if}{#if cp.agent?.on} · <span class="g">● {cp.agent.name}</span>{:else if cp.agent} · <span class="mute">○ {cp.agent.name} off</span>{:else} · <span class="mute">○ no agent</span>{/if}</span></td>
+            <td class="full nolbl"><a class="nm" href="/campaigns/{cp.id}/analytics" style="text-decoration:none">{cp.name}</a><span class="sm">{cp.steps} step{cp.steps === 1 ? '' : 's'} · {cp.timezone}{#if cp.windowNote} · {cp.windowNote}{/if}{#if data.isAdmin}{#if cp.agent?.on} · <span class="g">● {cp.agent.name}</span>{:else if cp.agent} · <span class="mute">○ {cp.agent.name} off</span>{:else} · <span class="mute">○ no agent</span>{/if}{/if}</span></td>
             <td data-l="Status"><span class="pill {cp.status}">{cp.status}</span></td>
             <td data-l="Progress"><div class="pw"><div class="bar" class:done={cp.status === 'completed'}><i style="--p:{cp.progress}%"></i></div><span class="num">{cp.progress}%</span></div></td>
             <td class="rt num" data-l="Leads">{n(cp.leads)}</td>

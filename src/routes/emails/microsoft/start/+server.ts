@@ -8,9 +8,9 @@ import { masterKeyProblem, microsoftConfigured } from '$lib/server/env';
 
 export const GET: RequestHandler = async ({ locals }) => {
   const c = ctx(locals);
-  if (!microsoftConfigured()) redirect(303, '/emails?error=' + encodeURIComponent('Microsoft is not configured on the server (MS_CLIENT_ID / MS_CLIENT_SECRET).'));
+  if (!microsoftConfigured()) redirect(303, '/mailboxes?error=' + encodeURIComponent('Microsoft is not configured on the server (MS_CLIENT_ID / MS_CLIENT_SECRET).'));
   const keyProblem = masterKeyProblem();
-  if (keyProblem) redirect(303, '/emails?error=' + encodeURIComponent(`${keyProblem} See Setup.`));
+  if (keyProblem) redirect(303, '/mailboxes?error=' + encodeURIComponent(`${keyProblem} See Setup.`));
   const db = await getDb();
   const state = randomToken(24);
   const { verifier, challenge } = pkcePair();

@@ -4,7 +4,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { closeDb, cols, ensureIndexes, getDb } from '../../src/lib/server/db';
 import { createMcpServer } from '../../src/lib/server/mcp';
-import { SCOPES, registerClient, validateAuthorization } from '../../src/lib/server/mcpAuth';
+import { SCOPES, actorForGrant, registerClient, validateAuthorization } from '../../src/lib/server/mcpAuth';
+import { sha256 } from '../../src/lib/server/crypto';
+import { acceptInvite, inviteForToken } from '../../src/lib/server/team';
 import { newCampaign } from '../../src/lib/server/campaigns';
 import { createTable, upsertRows } from '../../src/lib/server/research';
 import { pkcePair } from '../../src/lib/server/crypto';
@@ -12,6 +14,7 @@ import type { Actor } from '../../src/lib/server/operations';
 
 const { send, connectionTest } = vi.hoisted(() => ({ send: vi.fn(), connectionTest: vi.fn() }));
 vi.mock('../../src/lib/server/mail/provider', () => ({ providerFor: () => ({ send, test: connectionTest }) }));
+delete process.env.RESEND_API_KEY; // Hedwig's own emails go through the (mocked) mailbox here, never a real service
 let db: Db;
 const userId = new ObjectId(), space = `user:${userId}`, actor: Actor = { userId, space, scopes: [...SCOPES] };
 const closers: (() => Promise<void>)[] = [];
@@ -42,7 +45,8 @@ afterAll(async () => { for (const close of closers) await close(); await db.drop
 describe('MCP control workflow', () => {
   it('publishes the workflow and full tool surface while read-only grants hide mutations', async () => {
     const client = await connect(), names = (await client.listTools()).tools.map(t => t.name);
-    expect(names).toEqual(expect.arrayContaining(['campaign_preview','campaign_test','mailbox_update','agent_save','inbox_reply','workspace_delete','lead_update','research_edit_cells']));
+    expect(names).toEqual(expect.arrayContaining(['campaign_preview','campaign_test','mailbox_update','inbox_reply','workspace_delete','workspace_list','workspace_switch','workspace_stats','feed_create','lead_update','research_edit_cells']));
+    expect(names).not.toContain('agent_get'); expect(names).not.toContain('agent_update'); // agents are for admins only
     expect(client.getInstructions()).toContain('Default workflow');
     const limited = await connect({ ...actor, scopes: ['campaigns:read'] });
     const tools = (await limited.listTools()).tools.map(t => t.name);
@@ -58,7 +62,7 @@ describe('MCP control workflow', () => {
   });
   it('reads back saved settings and personalized numbered follow-ups without sending', async () => {
     const client = await connect(), f = await fixture();
-    const r = await call(client, 'campaign_update', { requestId: 'readback-update', campaignId: f.campaignId, patch: { testRecipient: 'test@example.com', agentOff: true, agentRules: [{ if: 'interested', then: 'draft a short answer' }], dailyLimit: 12 } });
+    const r = await call(client, 'campaign_update', { requestId: 'readback-update', campaignId: f.campaignId, patch: { testRecipient: 'test@example.com', agentOff: true, dailyLimit: 12 } });
     expect(r.isError).toBe(false); expect(r.campaign.testRecipient).toBe('test@example.com'); expect(r.safeToEdit).toBe(true);
     expect(r.preview.steps[1]).toMatchObject({ step: 2, subject: 'Re: Hello Alex', delayDays: 2 });
     expect(r.mailboxes[0].address).toContain('@example.com'); expect(send).not.toHaveBeenCalled();
@@ -117,14 +121,19 @@ describe('MCP control workflow', () => {
     expect((await call(client, 'lead_update', { requestId: 'lead-opt-out', leadId: f.leadId.toHexString(), status: 'unsubscribed' })).isError).toBe(false);
     expect(await cols(db).suppressions.findOne({ space, email: r.lead.email })).not.toBeNull();
   });
-  it('creates agents, assigns campaign rules and prevents deleting an assigned agent', async () => {
-    const client = await connect(), f = await fixture();
-    const r = await call(client, 'agent_save', { requestId: 'new-agent', name: 'Helpful agent', persona: 'Keep replies short.', model: 'gemini-2.5-flash', mode: 'draft', active: true });
-    expect(r.agent.name).toBe('Helpful agent');
-    await call(client,'campaign_update',{ requestId: 'assign-agent', campaignId: f.campaignId, patch: { agentId: r.agent._id, agentOff: false } });
-    expect((await call(client,'agent_delete',{ requestId: 'delete-used-agent', agentId: r.agent._id })).code).toBe('in_use');
-    await call(client,'campaign_update',{ requestId: 'unassign-agent', campaignId: f.campaignId, patch: { agentId: null } });
-    expect((await call(client,'agent_delete',{ requestId: 'delete-free-agent', agentId: r.agent._id })).deleted).toBe(true);
+  it('gives the reply agent tools to admins only; old custom-agent fields are refused', async () => {
+    const admin = await connect({ ...actor, admin: true }), f = await fixture();
+    expect((await admin.listTools()).tools.map(t => t.name)).toEqual(expect.arrayContaining(['agent_get', 'agent_update']));
+    const before = await call(admin, 'agent_get');
+    expect(before.agent).toMatchObject({ name: 'Triage', active: true }); expect(before.jev).toMatchObject({ cap: expect.any(Number) });
+    expect((await call(admin, 'agent_update', { requestId: 'agent-off', active: false, name: 'Reply reader' })).agent).toMatchObject({ name: 'Reply reader', active: false });
+    expect((await call(admin, 'campaign_get', { campaignId: f.campaignId })).agent).toMatchObject({ name: 'Reply reader', active: false });
+    const member = await connect();
+    expect((await call(member, 'campaign_get', { campaignId: f.campaignId })).agent).toBeUndefined();
+    expect((await member.callTool({ name: 'agent_update', arguments: { requestId: 'member-agent', active: true } })).isError).toBe(true);
+    expect((await admin.callTool({ name: 'campaign_update', arguments: { requestId: 'legacy-agent-id', campaignId: f.campaignId, patch: { agentId: null } } })).isError).toBe(true);
+    expect((await call(admin, 'campaign_update', { requestId: 'agent-off-campaign', campaignId: f.campaignId, patch: { agentOff: true } })).campaign.agentOff).toBe(true);
+    await call(admin, 'agent_update', { requestId: 'agent-on-again', active: true, name: 'Triage' });
   });
   it('sends a requested inbox reply once using its original mailbox and keeps provider content out of errors', async () => {
     const client = await connect(), f = await fixture();
@@ -163,12 +172,74 @@ describe('MCP control workflow', () => {
     expect(await cols(db).campaigns.findOne({ _id: other.cp._id })).not.toBeNull();
     expect((await call(client, 'mailbox_delete', { requestId: 'delete-free-mailbox', accountId: f.accountId.toHexString(), confirmAddress: `${f.accountId}@example.com` })).deleted).toBe(true);
   });
-  it('lets the assistant configure the built-in reply agent before visiting the website', async () => {
+  it('is one connection per account: it lists and switches between the account\'s workspaces, and loses a team the moment membership ends', async () => {
+    const orgId = new ObjectId(), grantId = `grant-${new ObjectId()}`;
+    await cols(db).orgs.insertOne({ _id: orgId, name: 'Switch Team', members: [{ userId, role: 'member', addedAt: new Date() }], createdAt: new Date() });
+    await db.collection('oauthGrants').insertOne({ _id: grantId as any, userId: userId.toHexString(), space, scope: [...SCOPES], clientId: 'test', createdAt: new Date() });
+    const first = (await actorForGrant(db, grantId))!; expect(first.space).toBe(space);
+    const client = await connect(first);
+    const list = await call(client, 'workspace_list');
+    const byName = (n: string) => list.workspaces.find((w: any) => w.name === n);
+    expect(byName('Switch Team')).toMatchObject({ workspace: `org:${orgId}`, role: 'member', current: false });
+    expect(byName('Personal')).toMatchObject({ workspace: space, current: true });
+    expect((await call(client, 'workspace_switch', { workspace: 'org:' + new ObjectId() })).code).toBe('not_found');
+    expect((await call(client, 'workspace_switch', { workspace: 'switch team' })).current).toBe(`org:${orgId}`);
+    const moved = (await actorForGrant(db, grantId))!; expect(moved.space).toBe(`org:${orgId}`);
+    const inTeam = await connect(moved), teamCampaign = await fixture(`org:${orgId}`);
+    expect((await call(inTeam, 'campaign_get', { campaignId: teamCampaign.campaignId })).campaign.name).toBe('Sequence');
+    expect((await call(inTeam, 'connection_list')).connections.find((x: any) => x._id === grantId)).toMatchObject({ workspace: 'Switch Team', thisConnection: true });
+    // removed from the team: the connection stays, back in Personal, and the team's data is out of reach
+    await cols(db).orgs.updateOne({ _id: orgId }, { $set: { members: [] } });
+    const after = (await actorForGrant(db, grantId))!; expect(after.space).toBe(space);
+    expect((await call(await connect(after), 'campaign_get', { campaignId: teamCampaign.campaignId })).code).toBe('not_found');
+  });
+  it('invites by emailed link from the team\'s own mailbox; nobody joins without the link, and only as the invited address', async () => {
+    const orgId = new ObjectId(), orgSpaceKey = `org:${orgId}`;
+    await cols(db).orgs.insertOne({ _id: orgId, name: 'Invite Team', members: [{ userId, role: 'owner', addedAt: new Date() }], createdAt: new Date() });
+    const personalBox = await fixture(); void personalBox; // a mailbox in the inviter's Personal space must not be used
+    const teamBox = await fixture(orgSpaceKey);
+    const existing = new ObjectId(); await cols(db).users.insertOne({ _id: existing, email: 'colleague@example.com', name: 'Colleague', passwordHash: 'x', createdAt: new Date() });
+    const owner = await connect({ ...actor, space: orgSpaceKey });
+    const r = await call(owner, 'team_invite', { requestId: 'invite-colleague', email: 'Colleague@Example.com' });
+    expect(r).toMatchObject({ email: 'colleague@example.com', org: 'Invite Team', emailed: true, via: `${teamBox.accountId}@example.com` });
+    expect(send).toHaveBeenCalledTimes(1);
+    const mail = send.mock.calls[0][0]; expect(mail.to).toBe('colleague@example.com'); expect(mail.subject).toContain('Invite Team');
+    const token = mail.text.match(/\/join\/([A-Za-z0-9_-]+)/)![1];
+    // inviting never adds anyone, not even an existing account
+    expect((await cols(db).orgs.findOne({ _id: orgId }))!.members.map(m => String(m.userId))).toEqual([String(userId)]);
+    expect((await cols(db).invites.findOne({ orgId }))?.tokenHash).toBe(sha256(token));
+    expect((await inviteForToken(db, token)).ok).toBe(true);
+    // a different account holding the link cannot use it
+    expect(await acceptInvite(db, token, { _id: new ObjectId(), email: 'someone-else@example.com' })).toMatchObject({ ok: false, reason: expect.stringContaining('colleague@example.com') });
+    // the invited address joins this team, as a member, once
+    const joined = await acceptInvite(db, token, { _id: existing, email: 'colleague@example.com' });
+    expect(joined.ok && String(joined.org._id)).toBe(String(orgId));
+    expect((await cols(db).orgs.findOne({ _id: orgId }))!.members.find(m => m.userId.equals(existing))?.role).toBe('member');
+    expect((await acceptInvite(db, token, { _id: existing, email: 'colleague@example.com' })).ok).toBe(false);
+    expect(await cols(db).orgs.countDocuments({ 'members.userId': existing })).toBe(1);
+    expect((await call(owner, 'team_invite', { requestId: 'invite-member-again', email: 'colleague@example.com' })).alreadyMember).toBe(true);
+    // a re-invite voids the previous link; a cancelled invite's link stops working
+    await call(owner, 'team_invite', { requestId: 'invite-new-1', email: 'new@example.com' });
+    const firstLink = send.mock.calls.at(-1)![0].text.match(/\/join\/([A-Za-z0-9_-]+)/)![1];
+    await call(owner, 'team_invite', { requestId: 'invite-new-2', email: 'new@example.com' });
+    const secondLink = send.mock.calls.at(-1)![0].text.match(/\/join\/([A-Za-z0-9_-]+)/)![1];
+    expect((await inviteForToken(db, firstLink)).ok).toBe(false); expect((await inviteForToken(db, secondLink)).ok).toBe(true);
+    const pending = await cols(db).invites.findOne({ orgId, email: 'new@example.com' });
+    expect((await call(owner, 'team_update', { requestId: 'cancel-new', action: 'cancel_invite', inviteId: pending!._id.toHexString() })).deleted).toBe(1);
+    expect((await inviteForToken(db, secondLink)).ok).toBe(false);
+    // a member cannot invite
+    expect((await call(await connect({ ...actor, userId: existing, space: orgSpaceKey }), 'team_invite', { requestId: 'member-invite', email: 'x@example.com' })).code).toBe('forbidden');
+  });
+  it('makes and turns off the results feed link, and reads workspace statistics', async () => {
     const client = await connect();
-    const r = await call(client, 'agent_save', { requestId: 'configure-default-agent', defaultAgent: true, name: 'Reply helper', persona: 'Answer concisely.', model: 'gemini-2.5-flash', mode: 'draft', active: true });
-    expect(r.agent.builtin).toBe(true);
-    const f = await fixture(), state = await call(client, 'campaign_get', { campaignId: f.campaignId }); expect(state.agent.name).toBe('Reply helper');
-    expect((await call(client, 'agent_delete', { requestId: 'delete-default-agent', agentId: r.agent._id })).code).toBe('in_use');
+    expect((await call(client, 'feed_get')).feed).toBeNull();
+    const made = await call(client, 'feed_create', { requestId: 'feed-make' });
+    expect(made.leadsCsv).toMatch(/\/feed\/[A-Za-z0-9_-]+\/leads\.csv$/);
+    expect((await call(client, 'feed_get')).feed).toMatchObject({ createdBy: 'Owner' });
+    expect((await call(client, 'feed_revoke', { requestId: 'feed-off' })).revoked).toBe(true);
+    const stats = await call(client, 'workspace_stats', { from: '2026-11-01', to: '2026-11-03' });
+    expect(stats.daily).toHaveLength(3); expect(stats.totals).toMatchObject({ sent: expect.any(Number) });
+    expect((await call(client, 'workspace_stats', { from: '2026-11-03', to: '2026-11-01' })).code).toBe('invalid_input');
   });
   it('preserves request receipts for send-only grants', async () => {
     const client = await connect({ ...actor, scopes: ['campaigns:send'] }), f = await fixture();

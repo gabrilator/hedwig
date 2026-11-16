@@ -69,6 +69,8 @@ export function ensureIndexes(d: Db): Promise<void> {
       c.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
       c.orgs.createIndex({ 'members.userId': 1 }),
       c.invites.createIndex({ email: 1, orgId: 1 }, { unique: true }),
+      c.invites.createIndex({ tokenHash: 1 }, { unique: true, partialFilterExpression: { tokenHash: { $exists: true } } }),
+      d.collection('oauthGrants').createIndex({ userId: 1, createdAt: -1 }),
       c.emailAccounts.createIndex({ space: 1 }),
       c.emailAccounts.createIndex({ address: 1 }, { unique: true }),
       c.campaigns.createIndex({ space: 1, status: 1 }),

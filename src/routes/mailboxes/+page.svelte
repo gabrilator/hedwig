@@ -11,13 +11,13 @@
   let busy = $state('');
   const run = (key: string) => () => { busy = key; return async ({ update }: any) => { busy = ''; await update({ reset: false }); }; };
   $effect(() => { if (form?.note) { toast(form.note); invalidateAll(); } if (form?.error) toast(form.error, 'err', 6000); });
-  $effect(() => { if (data.connected) { fly(`${data.connected} connected · reading replies from now on`); replaceState('/emails', {}); } });
+  $effect(() => { if (data.connected) { fly(`${data.connected} connected · reading replies from now on`); replaceState('/mailboxes', {}); } });
 </script>
-<svelte:head><title>Emails · Hedwig</title></svelte:head>
+<svelte:head><title>Mailboxes · Hedwig</title></svelte:head>
 <div class="top">
-  <div><h1 class="disp">Emails</h1><div class="sub">the mailboxes Hedwig sends from and reads replies in · {data.space?.name}</div></div>
+  <div><h1 class="disp">Mailboxes</h1><div class="sub">the mailboxes Hedwig sends from and reads replies in · {data.space?.name}</div></div>
   <div class="acts">
-    <a class="btn pri" href="/emails/new">+ Connect a mailbox (IMAP / SMTP)</a>
+    <a class="btn pri" href="/mailboxes/new">+ Connect a mailbox (IMAP / SMTP)</a>
     {#if data.msConfigured}<a class="btn" href="/emails/microsoft/start">Connect with Microsoft</a>{/if}
     <Info label="How mailboxes connect">
       <p style="margin:0 0 8px"><b>Any provider with IMAP and SMTP</b> (Titan, Zoho, Google, IONOS, Hostinger, your own server) connects with the mailbox password through “Connect a mailbox”.</p>

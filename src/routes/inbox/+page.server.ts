@@ -6,9 +6,9 @@ import { cols, getDb } from '$lib/server/db';
 import { ctx, oid, plain, str } from '$lib/server/context';
 import { applyLeadStatus, LEAD_STATUSES, STATUS_LABEL } from '$lib/server/campaigns';
 import { deleteInbound, markThreadRead, sendManualReply } from '$lib/server/inbox';
-import { classifyMessage, describeAgent, draftForMessage, effectiveAgent } from '$lib/server/agent';
+import { classifyMessage, describeAgent, effectiveAgent } from '$lib/server/agent';
 import { sanitizeBody, sanitizeInboundHtml } from '$lib/server/sanitize';
-import { classifierConfigured, geminiConfigured, jevConfigured } from '$lib/server/env';
+import { jevConfigured } from '$lib/server/env';
 import { AI_LABELS, type LeadDoc, type LeadStatus } from '$lib/server/types';
 import type { Ctx } from '$lib/server/context';
 
@@ -71,8 +71,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
           html: m.direction === 'in' && m.html ? sanitizeInboundHtml(m.html) : m.kind === 'manual' && m.html ? sanitizeBody(m.html) : null,
           ai: m.ai?.label ? { label: m.ai.label, confidence: m.ai.confidence ?? 0, reason: m.ai.reason ?? '', appliedStatus: m.ai.appliedStatus ?? null } : null
         }))),
-        agent: agent ? { id: agent._id.toHexString(), name: agent.name, mode: agent.mode, active: agent.active, what: describeAgent(agent) } : { id: null, name: null, mode: null, active: false, what: describeAgent(null) },
-        lastReply: lastReply ? { id: lastReply._id.toHexString(), ai: plain(lastReply.ai ?? null), draft: lastReply.ai?.draft ?? null } : null
+        agent: agent ? { id: agent._id.toHexString(), name: agent.name, active: agent.active, what: describeAgent(agent) } : { id: null, name: null, active: false, what: describeAgent(null) },
+        lastReply: lastReply ? { id: lastReply._id.toHexString(), ai: plain(lastReply.ai ?? null) } : null
       };
     }
   }
@@ -81,7 +81,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     total, page, pages: Math.max(1, Math.ceil(total / PAGE)), status, label, campaignId, q, counts,
     campaigns: campaigns.map((x) => ({ id: x._id.toHexString(), name: x.name, status: x.status })),
     statuses: LEAD_STATUSES, statusLabels: STATUS_LABEL, labels: AI_LABELS, thread,
-    canLabel: classifierConfigured(), canDraft: geminiConfigured(), labeller: jevConfigured() ? 'Jev' : 'Gemini'
+    canLabel: jevConfigured()
   };
 };
 
@@ -136,27 +136,17 @@ export const actions: Actions = {
     const campaign = await col.campaigns.findOne({ _id: lead.campaignId });
     if (!campaign) return fail(400, { error: 'The campaign of this thread is gone.' });
     const account = await replyMailbox(db, lead, campaign.accountIds);
-    if (!account) return fail(400, { error: 'No active mailbox can answer this thread. Resume the mailbox on the Emails screen.' });
+    if (!account) return fail(400, { error: 'No active mailbox can answer this thread. Resume the mailbox on the Mailboxes screen.' });
     const html = sanitizeBody(str(fd, 'body'));
     try {
       await sendManualReply(db, { lead, campaign, account, html, nonce, byUserId: c.user._id });
       return { sent: true, note: `Reply sent to ${lead.email} from ${account.address}` };
     } catch (e: any) { return fail(400, { error: e.message }); }
   },
-  draft: async ({ request, locals }) => {
-    const c = ctx(locals); const db = await getDb(); const col = cols(db);
-    const lead = await ownedLead(db, c, str(await request.formData(), 'lead'));
-    if (!geminiConfigured()) return fail(400, { error: 'Drafts need GEMINI_API_KEY on the server. Add it to the environment and restart.' });
-    const last = await col.messages.findOne({ leadId: lead._id, direction: 'in', kind: 'reply' }, { sort: { at: -1 } });
-    if (!last) return fail(400, { error: 'There is no reply to answer yet.' });
-    const r = await draftForMessage(db, last._id);
-    if (!r.ok) return fail(400, { error: r.error ?? r.skipped ?? 'The agent could not draft this one.' });
-    return { note: r.draft ? 'Draft ready: read it, edit it, then send it yourself.' : `The agent labelled this ${r.label} and wrote no draft for it.` };
-  },
   classify: async ({ request, locals }) => {
     const c = ctx(locals); const db = await getDb(); const col = cols(db);
     const lead = await ownedLead(db, c, str(await request.formData(), 'lead'));
-    if (!classifierConfigured()) return fail(400, { error: 'No model key on the server: add TYPESAFE_API_KEY (Jev) or GEMINI_API_KEY to the environment and restart.' });
+    if (!jevConfigured()) return fail(400, { error: 'No Jev key on the server: add TYPESAFE_API_KEY to the environment and restart.' });
     const last = await col.messages.findOne({ leadId: lead._id, direction: 'in', kind: 'reply' }, { sort: { at: -1 } });
     if (!last) return fail(400, { error: 'There is no reply to classify.' });
     const r = await classifyMessage(db, last._id, { force: true });

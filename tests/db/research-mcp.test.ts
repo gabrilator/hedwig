@@ -175,12 +175,14 @@ describe('OAuth and MCP interoperability', () => {
     const tokens = await exchange({ client_id: auth.client.client_id, grant_type: 'authorization_code', code: auth.code.authorizationCode, redirect_uri: auth.client.redirect_uris[0], code_verifier: auth.pair.verifier });
     await expect(exchange({ client_id: auth.client.client_id, grant_type: 'refresh_token', refresh_token: tokens.refresh_token, scope: 'campaigns:send' })).rejects.toThrow();
   });
-  it('removes access when organization membership is removed', async () => {
+  it('removes access to an organization the moment membership is removed; the account connection falls back to Personal', async () => {
     const orgId = new ObjectId(), grantId = randomToken();
     await cols(db).orgs.insertOne({ _id: orgId, name: 'Team', members: [{ userId, role: 'member', addedAt: new Date() }], createdAt: new Date() });
     await db.collection('oauthGrants').insertOne({ _id: grantId as any, userId: userId.toHexString(), space: `org:${orgId}`, scope: ['campaigns:read'] });
-    expect(await actorForGrant(db, grantId)).not.toBeNull();
+    expect((await actorForGrant(db, grantId))?.space).toBe(`org:${orgId}`);
     await cols(db).orgs.updateOne({ _id: orgId }, { $set: { members: [] } });
+    expect((await actorForGrant(db, grantId))?.space).toBe(space);
+    await db.collection('oauthGrants').updateOne({ _id: grantId as any }, { $set: { revokedAt: new Date() } });
     expect(await actorForGrant(db, grantId)).toBeNull();
   });
   it('a real MCP client discovers scoped tools, creates a table and retries without duplicating it', async () => {

@@ -19,7 +19,7 @@ export function newCampaign(space: SpaceKey, ownerUserId: ObjectId, name: string
     space, ownerUserId, name: name.trim() || 'Untitled campaign', status: 'draft', schedule: defaultSchedule(timezone),
     steps: [{ subject: '', body: '', delayDays: 0 }], accountIds: [], dailyLimit: 30, stopOnReply: true, oooStops: false,
     openTracking: true, testRecipient, unsubscribeLine: '',
-    agentId: null, agentRules: [], createdAt: now, updatedAt: now
+    createdAt: now, updatedAt: now
   };
 }
 

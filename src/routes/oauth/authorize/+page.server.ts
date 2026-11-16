@@ -4,7 +4,11 @@ import { getDb } from '$lib/server/db';
 import { ctx } from '$lib/server/context';
 import { oauthOrigin, oauthServer, SCOPE_LABELS, validateAuthorization } from '$lib/server/mcpAuth';
 import { randomToken } from '$lib/server/crypto';
+import { isAdminEmail } from '$lib/server/env';
 import type { Actions, PageServerLoad } from './$types';
+
+/** Agent permissions mean something only for admins (ADMIN_EMAILS): anyone else is never asked for them nor given them. */
+const forUser = (scopes: string[], email: string) => isAdminEmail(email) ? scopes : scopes.filter((s) => !s.startsWith('agents:'));
 
 export const load: PageServerLoad = async ({ url, locals, setHeaders }) => {
   // Not 'no-referrer': browsers send Origin: null on a form post from such a page, which the origin check rejects.
@@ -12,7 +16,7 @@ export const load: PageServerLoad = async ({ url, locals, setHeaders }) => {
   const c = ctx(locals); setHeaders({ 'cache-control': 'no-store', 'referrer-policy': 'same-origin', 'x-frame-options': 'DENY', 'content-security-policy': "frame-ancestors 'none'" });
   try {
     const { client, scope } = await validateAuthorization(await getDb(), url.searchParams, oauthOrigin(url.origin));
-    return { clientName: client.client_name, redirectHost: new URL(url.searchParams.get('redirect_uri')!).host, permissions: scope.map(s => ({ key: s, label: SCOPE_LABELS[s] })), spaces: c.spaces.map(s => ({ key: s.key, name: s.name })) };
+    return { clientName: client.client_name, redirectHost: new URL(url.searchParams.get('redirect_uri')!).host, permissions: forUser(scope, c.user.email).map(s => ({ key: s, label: SCOPE_LABELS[s] })), workspaces: c.spaces.map(s => s.name), startsIn: c.space.name };
   } catch (e) { error(400, (e as Error).message); }
 };
 export const actions: Actions = {
@@ -26,12 +30,12 @@ export const actions: Actions = {
       if (auth.query.state) target.searchParams.set('state', auth.query.state);
       redirect(303, target.toString());
     }
-    const space = String(form.get('space'));
-    if (!c.spaces.some(s => s.key === space)) return fail(403, { error: 'Choose a workspace you can access.' });
-    const scopes = form.getAll('scope').map(String);
+    // A non-admin's agent permissions are dropped, not refused: the connection simply never gets them.
+    const scopes = forUser(form.getAll('scope').map(String), c.user.email);
     if (!scopes.length || scopes.some(s => !auth.scope.includes(s))) return fail(400, { error: 'Choose valid permissions.' });
     const grantId = randomToken(32);
-    await db.collection('oauthGrants').insertOne({ _id: grantId as any, userId: c.user._id.toHexString(), space, scope: scopes, clientId: auth.query.client_id, clientName: auth.client.client_name, createdAt: new Date() });
+    // The connection is the account's; `space` is only where it starts (the workspace open in the browser right now).
+    await db.collection('oauthGrants').insertOne({ _id: grantId as any, userId: c.user._id.toHexString(), space: c.space.key, scope: scopes, clientId: auth.query.client_id, clientName: auth.client.client_name, createdAt: new Date() });
     const response = new OAuth2Server.Response();
     try {
       await oauthServer(db, origin, true).authorize(new OAuth2Server.Request({ method: 'GET', headers: {}, query: { ...auth.query, scope: scopes.join(' ') } }), response, { allowEmptyState: true, authenticateHandler: { handle: async () => ({ id: c.user._id.toHexString(), grantId }) } });

@@ -15,15 +15,13 @@ export const load: PageServerLoad = async ({ locals }) => {
   const col = cols(db);
   const campaigns = await col.campaigns.find({ space: c.space.key }, { sort: { createdAt: -1 } }).toArray();
   const ids = campaigns.map((x) => x._id);
-  const [leadRows, statRows, accounts, nextSend, agents, defaultAgent] = await Promise.all([
+  const [leadRows, statRows, accounts, nextSend, defaultAgent] = await Promise.all([
     col.leads.aggregate<{ _id: { c: ObjectId; s: string }; n: number }>([{ $match: { campaignId: { $in: ids } } }, { $group: { _id: { c: '$campaignId', s: '$status' }, n: { $sum: 1 } } }]).toArray(),
     col.dailyStats.aggregate<{ _id: ObjectId; sent: number; uniqueOpens: number; replies: number; bounces: number }>([{ $match: { campaignId: { $in: ids } } }, { $group: { _id: '$campaignId', sent: { $sum: '$sent' }, uniqueOpens: { $sum: '$uniqueOpens' }, replies: { $sum: '$replies' }, bounces: { $sum: '$bounces' } } }]).toArray(),
     col.emailAccounts.find({ space: c.space.key }, { projection: { address: 1, status: 1 } }).toArray(),
     col.sends.findOne({ space: c.space.key, status: 'planned' }, { sort: { dueAt: 1 } }),
-    col.agents.find({ space: { $in: c.spaceKeys } }, { projection: { name: 1, active: 1, mode: 1 } }).toArray(),
     ensureDefaultAgent(db, c.space.key, c.user._id)
   ]);
-  const agentById = new Map(agents.map((a) => [a._id.toHexString(), a]));
   const since24h = new Date(Date.now() - 864e5);
   // opens are counted once per email here, like the Opened column: a second pixel hit on the same email is not a second open
   const last24 = await col.events.aggregate<{ _id: string; n: number }>([{ $match: { space: c.space.key, at: { $gte: since24h } } }, { $group: { _id: '$type', n: { $sum: { $cond: [{ $and: [{ $eq: ['$type', 'open'] }, { $ne: ['$meta.unique', true] }] }, 0, 1] } } } }]).toArray();
@@ -38,7 +36,7 @@ export const load: PageServerLoad = async ({ locals }) => {
     const done = total - (leads.queued ?? 0);
     let windowNote = '';
     if (cp.status === 'active') { try { const w = windowFor(cp.schedule, now); windowNote = w.open ? 'window open' : (w.reason ?? ''); } catch { windowNote = 'bad timezone'; } }
-    const agent = cp.agentOff ? null : (cp.agentId && agentById.get(cp.agentId.toHexString())) || defaultAgent;
+    const agent = cp.agentOff ? null : defaultAgent;
     return {
       id: cp._id.toHexString(), name: cp.name, status: cp.status, steps: cp.steps.length, createdAt: cp.createdAt, startedAt: cp.startedAt ?? null,
       agent: agent ? { name: agent.name, on: !!agent.active } : null,

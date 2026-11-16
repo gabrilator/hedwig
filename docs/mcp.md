@@ -5,10 +5,10 @@ Hedwig exposes its outreach workflow and workspace controls to compatible MCP cl
 ## Connect
 
 1. Serve Hedwig at its configured `ORIGIN` over HTTPS. Loopback HTTP is allowed for local development. Run the web process and the existing worker as usual.
-2. Open **Setup → Assistant connections** in Hedwig and copy the `/mcp` URL.
+2. Open the **MCP** tab in Hedwig and copy the `/mcp` URL (it also shows the Claude Code and Codex commands).
 3. Add it as a custom remote MCP connection in your assistant (availability and settings depend on the client/account). Use automatic OAuth discovery, not a pasted access token.
-4. Sign into Hedwig, select a workspace and permissions, and connect. All requested permissions are selected by default. You can deselect any permission before connecting. Campaign launch/test sends and inbox replies have separate sending permissions. When the client omits scopes, Hedwig offers the full set; an explicit narrower request stays narrow. Existing grants are never expanded: disconnect and reconnect to enable new controls.
-5. Disconnect from **Setup → Assistant connections** to revoke the entire grant, including already-issued access and refresh tokens. Removing organization membership also removes access immediately.
+4. Sign into Hedwig, choose permissions, and connect. The connection belongs to your account: it reaches every workspace you are in, one at a time, starting in the one open in your browser. Ask the assistant to switch (`workspace_list`, `workspace_switch`); no reconnect is needed. All requested permissions are selected by default. You can deselect any permission before connecting. Campaign launch/test sends and inbox replies have separate sending permissions. When the client omits scopes, Hedwig offers the full set; an explicit narrower request stays narrow. Existing grants are never expanded: disconnect and reconnect to enable new controls.
+5. Disconnect from the **MCP** tab to revoke the entire grant, including already-issued access and refresh tokens. Membership is checked on every call: leaving or losing a team removes access to it immediately, and the connection falls back to your Personal workspace.
 
 The server supports Streamable HTTP and OAuth authorization code + S256 PKCE, dynamic client registration (DCR), public clients and client secrets. It publishes authorization-server and protected-resource discovery metadata. Clients should use DCR; Client ID Metadata Documents (CIMD) are not implemented. Request the exact canonical `/mcp` URL as the OAuth resource. `offline_access` enables rotating refresh tokens. Secrets and bearer tokens are never part of tool arguments.
 
@@ -34,20 +34,20 @@ The server supplies the workflow in MCP initialization instructions and `workflo
 
 | Area | Tools / controls |
 | --- | --- |
-| Campaigns | Create, get, update all campaign options (including test recipient and agent/rules), pause, start/resume, clone, delete, resolve enrollment conflicts, statistics |
+| Campaigns | Create, get, update all campaign options (including test recipient and the reply agent on/off), pause, start/resume, clone, delete, resolve enrollment conflicts, statistics |
 | Sequence testing | `campaign_preview`, `campaign_test`, `campaign_test_log` |
 | Leads | List, enroll, enrich, explicit variable/status/curious corrections, requeue paused recipients, remove |
 | Mailboxes | List/get settings, update name/limit/timezone/ramp/bounce threshold/status, check connection, enqueue sync/DNS, disconnect |
-| Agents | List models/settings, create/edit custom agents or the built-in default, delete unassigned custom agents |
-| Inbox | List/read conversations, mark read/unread, delete received messages locally, classify, draft, send requested replies |
+| Agents (admins only) | `agent_get`: the workspace's agent and Jev's usage · `agent_update`: switch it on/off, rename. Registered only for `ADMIN_EMAILS` accounts |
+| Inbox | List/read conversations, mark read/unread, delete received messages locally, label again with Jev (meeting, interested, replied), send requested replies |
 | Research | Create/read/import/upsert lists, add columns, explicit cell corrections, rename, remove rows/delete lists |
-| Workspace | Profile name, organization creation/rename/deletion, members/roles/invitations, connection listing/revocation, health and configuration status |
+| Workspace | List and switch workspaces, workspace statistics, results feed link (status, make, turn off), profile name, organization creation/rename/deletion, members/roles, emailed invitations, connection listing/revocation, health and configuration status |
 
 `campaign_test` requires an explicit test destination and active mailbox. Omit the 1-based `step` to send every step immediately; supply `leadId` to choose personalization. Tests use a separate test thread, do not advance live leads, and skip sequence delays. Missing variables block test sending. A full-sequence test stops on failure and reports each sent/uncertain step; inspect its receipt and test log before doing anything else. An identical request ID never sends again. These tests verify rendering and provider submission, not inbox placement, real scheduling or stop-on-reply behavior. The test log records sending/sent/failed state; a crash can leave a sending record for operator inspection.
 
-`inbox_reply` sends only a requested reply, through the conversation mailbox, with a durable receipt and duplicate nonce protection. Built-in reply agents remain classify/draft-only. `lead_update` and `research_edit_cells` are for user-directed corrections; use enrichment tools for automatic research so manual values stay protected. Team invitations register access without emailing an invitation; the result includes a signup link to share.
+`inbox_reply` sends only a requested reply, through the conversation mailbox, with a durable receipt and duplicate nonce protection. The reply agent only labels; nothing in Hedwig drafts or sends answers by itself. `lead_update` and `research_edit_cells` are for user-directed corrections; use enrichment tools for automatic research so manual values stay protected. `team_invite` emails a one-time join link from the team's own mailbox (or Resend); the person joins only by opening it, signed in as that address. The result says whether the email went out and, if not, why.
 
-Mailbox credentials, password changes, Microsoft consent and server environment secrets remain in secure browser/host setup, with links returned by `workflow_get`/`workspace_get`. No tool returns credentials. Connections stay bound to one workspace; reconnect to work in a newly created organization. Organization management still requires the user's actual role. Deletion requires an exact campaign/organization name or mailbox address and settled sends.
+Mailbox credentials, password changes, Microsoft consent and server environment secrets remain in secure browser/host setup, with links returned by `workflow_get`/`workspace_get`. No tool returns credentials. A connection acts in one workspace at a time; `workspace_create` switches it to the new organization. Organization management still requires the user's actual role. Deletion requires an exact campaign/organization name or mailbox address and settled sends.
 
 New scopes: `mailboxes:read/write`, `agents:read/write`, `inbox:read/write/send`, `workspace:read/write`. Existing campaign/research scopes keep their domains. Tools outside the grant are omitted and cannot be called. `operation_get` supports receipts in each authorized domain.
 

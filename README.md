@@ -55,8 +55,8 @@ flowchart TB
   subgraph replies ["Replies"]
     direction LR
     inbox["Inbox check<br/>every 2 minutes"] --> stop["Sequence stops"]
-    inbox --> agent["Reply agent<br/>label + draft"]
-    agent --> you["You press send"]
+    inbox --> agent["Reply agent<br/>meeting · interested · replied"]
+    agent --> you["You answer"]
   end
   sending --> person(("Prospect"))
   person -->|replies| replies
@@ -75,7 +75,7 @@ sequenceDiagram
   M->>P: Re: Quick question about wholesale
   P-->>M: Sure, send me your price list
   M-->>H: Read within two minutes
-  Note over H,M: Stops the sequence, labels it Interested, drafts an answer for you
+  Note over H,M: Stops the sequence, labels it Interested, emails you
   H--xP: Day 7: step 3 is never sent
 ```
 
@@ -101,7 +101,7 @@ Running your own server? Use its address instead of flyhedwig.com. Then ask in p
 
 > How is the roasters campaign doing? Which mailbox and which step get the most replies?
 
-> Who replied interested this week? Draft answers, I'll send them.
+> Who replied interested this week? Show me their replies.
 
 > Pause the campaign, add these 200 contacts and show me step 2 for the first one.
 
@@ -113,9 +113,9 @@ Running your own server? Use its address instead of flyhedwig.com. Then ask in p
 | Campaigns | Create, edit, preview, test-send, start, pause, clone, statistics |
 | Leads | Enroll, enrich, correct, requeue, remove |
 | Research | Tables where each fact keeps its source |
-| Inbox | Read threads, label, draft, send the replies you ask for |
+| Inbox | Read threads, label again, send the replies you ask for |
 | Mailboxes | Daily limit, timezone, ramp-up, DNS check |
-| Workspace | Members, invitations, reply agents |
+| Workspace | Switch workspace, members, emailed invitations, results feed, statistics |
 
 Starting a campaign and sending a reply are separate permissions you grant when you connect. Mailbox passwords never pass
 through the agent. More in [docs/mcp.md](docs/mcp.md).
@@ -127,7 +127,7 @@ through the agent. More in [docs/mcp.md](docs/mcp.md).
 - Write to 200 agencies from three mailboxes, a few dozen a day each, so none of them gets flagged.
 - Follow up with everyone you met at a trade show, during their working hours, in their timezone.
 - Let your agent research the list and write the openers; keep the send button for yourself.
-- Hand a teammate the Inbox: replies arrive labelled, with a draft waiting.
+- Hand a teammate the Inbox: replies arrive labelled meeting, interested or replied.
 
 ## Start
 
@@ -146,7 +146,7 @@ Open the address you set as `ORIGIN` and sign in. Every setting, and Microsoft 3
 
 **Then, either way:**
 
-1. **Emails**: connect a mailbox with its address and password (Microsoft 365 uses Microsoft's own sign-in).
+1. **Mailboxes**: connect a mailbox with its address and password (Microsoft 365 uses Microsoft's own sign-in).
 2. **Campaigns**: create one and import your list under **Leads**.
 3. **Sequence**: write the steps, with `{{firstName|there}}` style variables.
 4. **Schedule** and **Options**: set the sending window, pick the mailboxes, then press **Activate**.
@@ -155,7 +155,7 @@ Open the address you set as `ORIGIN` and sign in. Every setting, and Microsoft 3
 
 - Every email leaves through your own mailbox: its SMTP server, or Microsoft 365. Hedwig never relays mail.
 - Any mailbox with IMAP and SMTP works. Passwords and tokens are encrypted before they are stored.
-- An agent labels and drafts. It never sends anything by itself.
+- Jev labels each reply meeting, interested or replied (with a `TYPESAFE_API_KEY`). Nothing writes or sends answers by itself.
 - A secret link under Setup serves a workspace's results as CSV, for a spreadsheet's `=IMPORTDATA`:
   [docs/how-it-works.md](docs/how-it-works.md#results-feed).
 - How each part works, and the rules the code keeps: [docs/how-it-works.md](docs/how-it-works.md).

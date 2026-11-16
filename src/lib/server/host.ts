@@ -20,8 +20,8 @@ export function canonicalRedirect(hostHeader: string | null | undefined, path: s
   return `${origin.replace(/\/$/, '')}${path}${search}`;
 }
 
-/** Paths open without a session: the home page, MCP and its OAuth endpoints, sign-in, tracking, unsubscribe, health, the results feed. */
-const PUBLIC = [/^\/$/, /^\/mcp$/, /^\/oauth\/(token|register|revoke)$/, /^\/\.well-known\/oauth-(authorization-server|protected-resource)(\/mcp)?$/, /^\/login$/, /^\/signup$/, /^\/t\//, /^\/u\//, /^\/health$/, /^\/favicon\.svg$/, /^\/feed\/[^/]+\/(leads|daily)\.csv$/];
+/** Paths open without a session: the home page, MCP and its OAuth endpoints, sign-in, team join links, tracking, unsubscribe, health, the results feed. */
+const PUBLIC = [/^\/$/, /^\/mcp$/, /^\/oauth\/(token|register|revoke)$/, /^\/\.well-known\/oauth-(authorization-server|protected-resource)(\/mcp)?$/, /^\/login$/, /^\/signup$/, /^\/join\/[A-Za-z0-9_-]+$/, /^\/t\//, /^\/u\//, /^\/health$/, /^\/favicon\.svg$/, /^\/feed\/[^/]+\/(leads|daily)\.csv$/];
 export const isPublicPath = (path: string): boolean => PUBLIC.some((re) => re.test(path));
 
 const FORM_CT = /^(application\/x-www-form-urlencoded|multipart\/form-data|text\/plain)\b/i;

@@ -6,7 +6,8 @@ import type { CampaignDoc } from './types';
 export class OperationError extends Error {
   constructor(public code: string, message: string) { super(message); }
 }
-export interface Actor { userId: ObjectId; space: string; scopes?: string[]; connectionId?: string }
+/** Who acts: a person in one workspace. `admin` (an ADMIN_EMAILS address) may see and change the reply agents. */
+export interface Actor { userId: ObjectId; space: string; scopes?: string[]; connectionId?: string; admin?: boolean }
 export function requireScope(actor: Actor, scope: string) {
   if (actor.scopes && !actor.scopes.includes(scope)) throw new OperationError('forbidden', `This connection needs ${scope} permission.`);
 }

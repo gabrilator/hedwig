@@ -18,6 +18,6 @@ export const load: LayoutServerLoad = async ({ locals, params }) => {
   try { const w = windowFor(campaign.schedule, new Date()); windowNote = w.open ? 'window open now' : `window closed: ${w.reason}`; } catch { windowNote = 'invalid timezone'; }
   return {
     campaign: plain(campaign), counts, accountsUsed: plain(accounts), problems: activationProblems(campaign, counts.total), windowNote,
-    agent: agent ? { id: agent._id.toHexString(), name: agent.name, mode: agent.mode, active: agent.active } : null
+    agent: agent ? { id: agent._id.toHexString(), name: agent.name, active: agent.active } : null
   };
 };

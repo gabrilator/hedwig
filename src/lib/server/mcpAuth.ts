@@ -4,12 +4,12 @@ import { z } from 'zod';
 import { timingSafeEqual } from 'node:crypto';
 import { cols } from './db';
 import { randomToken, sha256 } from './crypto';
-import { envOpt } from './env';
-import { spacesFor } from './scope';
+import { envOpt, isAdminEmail } from './env';
+import { personalSpace, spacesFor, type SpaceInfo } from './scope';
 import { OperationError, type Actor } from './operations';
 
 export const SCOPES = ['campaigns:read', 'campaigns:write', 'campaigns:send', 'research:read', 'research:write', 'mailboxes:read', 'mailboxes:write', 'agents:read', 'agents:write', 'inbox:read', 'inbox:write', 'inbox:send', 'workspace:read', 'workspace:write', 'offline_access'] as const;
-export const SCOPE_LABELS: Record<string, string> = { 'campaigns:read': 'Read campaigns and statistics', 'campaigns:write': 'Create drafts, edit paused campaigns, enroll contacts and pause sending', 'campaigns:send': 'Start campaigns and send requested sequence tests', 'research:read': 'Read lists and contacts', 'research:write': 'Save lists and enrich columns', 'mailboxes:read': 'Read mailbox settings and health', 'mailboxes:write': 'Manage, check and disconnect mailboxes', 'agents:read': 'Read reply agents', 'agents:write': 'Create, edit and delete reply agents', 'inbox:read': 'Read conversations and drafts', 'inbox:write': 'Manage conversations and request drafts', 'inbox:send': 'Send replies when you ask', 'workspace:read': 'Read workspace settings and team', 'workspace:write': 'Manage your profile, workspace, team and connections', offline_access: 'Stay connected until you disconnect' };
+export const SCOPE_LABELS: Record<string, string> = { 'campaigns:read': 'Read campaigns and statistics', 'campaigns:write': 'Create drafts, edit paused campaigns, enroll contacts and pause sending', 'campaigns:send': 'Start campaigns and send requested sequence tests', 'research:read': 'Read lists and contacts', 'research:write': 'Save lists and enrich columns', 'mailboxes:read': 'Read mailbox settings and health', 'mailboxes:write': 'Manage, check and disconnect mailboxes', 'agents:read': 'Read the reply agent and Jev usage (admins only)', 'agents:write': 'Switch the reply agent on or off (admins only)', 'inbox:read': 'Read conversations and drafts', 'inbox:write': 'Manage conversations and request drafts', 'inbox:send': 'Send replies when you ask', 'workspace:read': 'Read your workspaces, their settings, team and statistics', 'workspace:write': 'Manage your profile, workspaces, team invitations, results feed and connections', offline_access: 'Stay connected until you disconnect' };
 export function oauthOrigin(fallback?: string) {
   const origin = new URL(envOpt('ORIGIN') || fallback || 'http://localhost:5180');
   if (origin.protocol !== 'https:' && !(origin.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname))) throw new OperationError('configuration', 'MCP requires an HTTPS ORIGIN (HTTP is allowed only on loopback).');
@@ -45,14 +45,27 @@ export async function validateAuthorization(db: Db, params: URLSearchParams, ori
   if (scope.some(s => !(SCOPES as readonly string[]).includes(s))) throw new OperationError('invalid_scope', 'Unknown permission requested.');
   return { client, scope, query: Object.fromEntries(params) };
 }
+/**
+ * A connection belongs to the person's account, not to one workspace: it reaches every workspace they are in, the way the
+ * web app does, and acts in one of them at a time. `grant.space` is that current workspace (workspace_switch moves it).
+ * Membership is read fresh on every call, so leaving or losing a team takes it away at once; the connection then falls
+ * back to the person's own space instead of dying.
+ */
 export async function actorForGrant(db: Db, id: string): Promise<Actor | null> {
   const grant = await db.collection('oauthGrants').findOne({ _id: id as any, revokedAt: { $exists: false } });
   if (!grant) return null;
   const user = await cols(db).users.findOne({ _id: new ObjectId(grant.userId) });
   if (!user) return null;
   const orgs = await cols(db).orgs.find({ 'members.userId': user._id }).toArray();
-  if (!spacesFor(user, orgs).some(s => s.key === grant.space)) return null;
-  return { userId: user._id, space: grant.space, scopes: grant.scope, connectionId: id };
+  const spaces = spacesFor(user, orgs);
+  const space = spaces.some(s => s.key === grant.space) ? grant.space : personalSpace(user._id);
+  return { userId: user._id, space, scopes: grant.scope, connectionId: id, admin: isAdminEmail(user.email) };
+}
+/** The workspaces a person can reach, for workspace_list and the MCP screen. */
+export async function spacesOf(db: Db, userId: ObjectId): Promise<SpaceInfo[]> {
+  const user = await cols(db).users.findOne({ _id: userId });
+  if (!user) return [];
+  return spacesFor(user, await cols(db).orgs.find({ 'members.userId': user._id }).toArray());
 }
 /** The library owns OAuth validation and PKCE. The model owns atomic consumption and hashed credential storage. */
 export function oauthServer(db: Db, origin: string, authorization = false) {

@@ -9,15 +9,17 @@
   import { readTheme, theme, toggleTheme } from '$lib/ui/theme.svelte';
 
   let { children, data } = $props();
-  const nav = [
+  // Agents are for admins (ADMIN_EMAILS) only, and come last.
+  const nav = $derived([
     { href: '/campaigns', label: 'Campaigns', k: '1' },
     { href: '/inbox', label: 'Inbox', k: '2' },
     { href: '/analytics', label: 'Analytics', k: '3' },
-    { href: '/emails', label: 'Emails', k: '4' },
-    { href: '/agents', label: 'Agents', k: '5' },
-    { href: '/team', label: 'Team', k: '6' },
-    { href: '/lists', label: 'Lists', k: '7' }
-  ];
+    { href: '/mailboxes', label: 'Mailboxes', k: '4' },
+    { href: '/team', label: 'Team', k: '5' },
+    { href: '/lists', label: 'Lists', k: '6' },
+    { href: '/connections', label: 'MCP', k: '7' },
+    ...(data.isAdmin ? [{ href: '/agents', label: 'Agents', k: '8' }] : [])
+  ]);
   const active = (href: string) => page.url.pathname === href || page.url.pathname.startsWith(href + '/');
 
   onMount(() => {

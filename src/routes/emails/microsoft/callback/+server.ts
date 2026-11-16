@@ -11,7 +11,7 @@ import { envOpt } from '$lib/server/env';
 export const GET: RequestHandler = async ({ locals, url }) => {
   const c = ctx(locals);
   const db = await getDb(); const col = cols(db);
-  const fail = (m: string) => redirect(303, '/emails?error=' + encodeURIComponent(m));
+  const fail = (m: string) => redirect(303, '/mailboxes?error=' + encodeURIComponent(m));
   const err = url.searchParams.get('error');
   if (err) fail(`${err}: ${url.searchParams.get('error_description') ?? ''}`);
   const code = url.searchParams.get('code'), state = url.searchParams.get('state');
@@ -41,5 +41,5 @@ export const GET: RequestHandler = async ({ locals, url }) => {
     await enqueue(db, 'dns-check', { accountId: _id.toHexString() });
     await enqueue(db, 'sync-account', { accountId: _id.toHexString() });
   }
-  redirect(303, `/emails?connected=${encodeURIComponent(profile!.address)}`);
+  redirect(303, `/mailboxes?connected=${encodeURIComponent(profile!.address)}`);
 };

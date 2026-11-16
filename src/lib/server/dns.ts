@@ -1,7 +1,7 @@
 import { promises as dns } from 'node:dns';
 import type { DnsResult, Provider } from './types';
 
-// one selector per provider the Emails screen offers, plus the usual generic ones: titan1/2 (Titan), hostingermail-a/b/c,
+// one selector per provider the Mailboxes screen offers, plus the usual generic ones: titan1/2 (Titan), hostingermail-a/b/c,
 // s1-ionos/s2-ionos, sig1 (iCloud), selector1/2 (Microsoft), google, zoho/zmail
 const DKIM_SELECTORS = ['titan1', 'titan2', 'selector1', 'selector2', 'google', 'default', 'zoho', 'zmail', 'hostingermail-a', 'hostingermail-b', 'hostingermail-c', 's1-ionos', 's2-ionos', 'sig1', 'k1', 'k2', 's1', 's2', 'dkim', 'mail', 'mx', 'smtp', 'protonmail', 'fm1', 'fm2', 'mailo'];
 

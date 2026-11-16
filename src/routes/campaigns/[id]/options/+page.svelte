@@ -37,7 +37,7 @@
       {#each data.accounts as a}
         <label class="chip" style="cursor:pointer"><input type="checkbox" name="accountIds" value={a._id} checked={cp.accountIds.includes(a._id)} /> {a.address} <span class="mute">· {a.dailyLimit}/day{a.status !== 'active' ? ` · ${a.status}` : ''}</span></label>
       {:else}
-        <a class="chip add" href="/emails">no mailbox yet · connect one</a>
+        <a class="chip add" href="/mailboxes">no mailbox yet · connect one</a>
       {/each}
     </div>
   </div>

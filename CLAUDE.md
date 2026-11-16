@@ -21,18 +21,21 @@ persona). No company, product, school or domain name is hardwired in the UI, the
 5. **Every number on a screen equals a count on `events`.** Screens read `dailyStats` ($inc at event time, re-derived hourly).
    Nothing scans `events` or `sends` in a request handler beyond bounded, indexed queries.
 6. **Scoping is structural.** Routes go through `ctx(locals)` and `ownedCampaign/ownedAccount`; every scoped document carries `space`.
+   An MCP connection belongs to an account and acts in one of its workspaces at a time (`workspace_switch`); membership is read on every call.
    The one read across every space is `/admin` (`src/lib/server/admin.ts`), for the addresses in `ADMIN_EMAILS` only.
 7. **The worker is the only scheduler** (`src/worker/index.ts`, Agenda on `agendaJobs`). Never start crons in the SvelteKit server.
    The web enqueues work by inserting an Agenda-shaped job (`src/lib/server/jobs.ts`).
 8. **Motion is a courtesy:** short, never blocking, off under `prefers-reduced-motion`.
-9. **The classifier is asked once per reply, and an agent never sends.** A reply is claimed with one atomic
-   `findOneAndUpdate` (`messages.ai.status` pending → running) before the model is called: Jev when `TYPESAFE_API_KEY` is
-   set, Gemini when it is not or Jev cannot answer; a draft is Gemini's, at most one more call. A failed attempt retries at
-   most twice; a hard daily cap
-   (`GEMINI_DAILY_CAP`, all calls) stops it. A status a person set is final: the classifier skips that lead until "Label
-   again". Drafts are text in the Inbox for a person to edit and send. There is no auto-reply mode. (`src/lib/server/agent.ts`)
+9. **Jev is asked once per reply, and an agent never sends or writes.** Jev (`TYPESAFE_API_KEY`) is the only classifier:
+   three labels, meeting, interested, replied; without the key nothing is labelled. A reply is claimed with one atomic
+   `findOneAndUpdate` (`messages.ai.status` pending → running) before Jev is called. A failed attempt retries at most twice;
+   a hard daily cap (`JEV_DAILY_CAP`) stops it. A status a person set is final: the classifier skips that lead until "Label
+   again". No drafts, no auto-reply mode. The Agents screen and the agent tools are for `ADMIN_EMAILS` only. (`src/lib/server/agent.ts`)
 10. **One canonical host.** Forms only work where the browser's Origin equals `ORIGIN`; `hooks.server.ts` redirects every other
    host of ours to `ORIGIN`, except `/t/`, `/u/` and `/health`.
+11. **Joining a team takes the emailed link.** An invite is a one-time token (only its SHA-256 stored) emailed from the team's
+   own space; only the invited address can use it, claimed with one atomic `findOneAndUpdate`. Sign-up and log-in never join
+   a team by address. (`src/lib/server/team.ts`)
 
 ## Working rules
 - `npm run check` (svelte-check) and `npm test` before saying something works. `tests/db` needs the local MongoDB in `.env`.

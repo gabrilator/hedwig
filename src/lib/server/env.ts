@@ -31,12 +31,9 @@ export const isAdminEmail = (email: string | null | undefined) => !!email && adm
 export const microsoftConfigured = () => !!(envOpt('MS_CLIENT_ID') && envOpt('MS_CLIENT_SECRET'));
 export const resendConfigured = () => !!envOpt('RESEND_API_KEY');
 export const trackingBase = () => (envOpt('TRACKING_BASE_URL') ?? env('ORIGIN')).replace(/\/$/, '');
-export const geminiConfigured = () => !!envOpt('GEMINI_API_KEY');
-/** Jev (TypeSafe) labels replies when its key is set; Gemini then only writes drafts. */
+/** Jev (TypeSafe) is the only reply classifier: without its key replies are matched and stopped, never labelled. */
 export const jevConfigured = () => !!envOpt('TYPESAFE_API_KEY');
-/** Something can label replies: Jev, or else the agent's Gemini model. */
-export const classifierConfigured = () => jevConfigured() || geminiConfigured();
-/** Hard ceiling on model calls (Jev and Gemini together) per UTC day for the whole instance; the agent stops asking above it. */
-export const geminiDailyCap = () => Math.max(1, Number(envOpt('GEMINI_DAILY_CAP') ?? 300) || 300);
+/** Hard ceiling on Jev calls per UTC day for the whole instance; the agent stops asking above it. GEMINI_DAILY_CAP is its old name. */
+export const classifierDailyCap = () => Math.max(1, Number(envOpt('JEV_DAILY_CAP') ?? envOpt('GEMINI_DAILY_CAP') ?? 300) || 300);
 /** Hostname of ORIGIN (no port), or null when ORIGIN is unset or not a URL. */
 export const originHost = (): string | null => { try { return new URL(env('ORIGIN')).hostname.toLowerCase(); } catch { return null; } };

@@ -64,7 +64,7 @@ export function createMcpServer(db: Db, actor: Actor) {
   register('operation_get', 'Inspect a command receipt by requestId after a retry or interruption.', actor.scopes?.find(s => s.endsWith(':read')) ?? actor.scopes?.find(s => s !== 'offline_access') ?? 'campaigns:read', { requestId }, false, async a => {
     const receipt = await db.collection('operationReceipts').findOne({ space: actor.space, userId: actor.userId, _id: (await import('./crypto')).sha256(`${actor.space}:${actor.userId}:${a.requestId}`) as any });
     if (receipt) {
-      const scope = receipt.action.startsWith('research_') ? 'research:read' : receipt.action.startsWith('mailbox_') ? 'mailboxes:read' : receipt.action.startsWith('agent_') ? 'agents:read' : receipt.action.startsWith('inbox_') ? 'inbox:read' : /^(workspace_|team_|profile_|connection_)/.test(receipt.action) ? 'workspace:read' : 'campaigns:read';
+      const scope = receipt.action.startsWith('research_') ? 'research:read' : receipt.action.startsWith('mailbox_') ? 'mailboxes:read' : receipt.action.startsWith('agent_') ? 'agents:read' : receipt.action.startsWith('inbox_') ? 'inbox:read' : /^(workspace_|team_|profile_|connection_|feed_)/.test(receipt.action) ? 'workspace:read' : 'campaigns:read';
       if (!actor.scopes?.includes(scope)) requireScope(actor, scope.replace(':read', ['inbox_reply', 'campaign_start', 'campaign_test'].includes(receipt.action) ? ':send' : ':write'));
     }
     return { receipt: receipt ?? null };

@@ -27,9 +27,10 @@ export function fmtDay(iso: string | Date | null | undefined, tz?: string): stri
 export const n = (x: number | undefined | null): string => (x ?? 0).toLocaleString('en-GB');
 export const labelStatus = (s: string) => s.replace(/_/g, ' ');
 
+/** Jev's three labels, then the older ones still on replies labelled before 2026-11. */
 export const AI_LABEL_TEXT: Record<string, string> = {
-  interested: 'Interested', meeting: 'Meeting', question: 'Question', not_interested: 'Not interested',
-  out_of_office: 'Out of office', bounce: 'Bounce', unsubscribe: 'Unsubscribe', other: 'Other'
+  meeting: 'Meeting', interested: 'Interested', replied: 'Replied',
+  question: 'Question', not_interested: 'Not interested', out_of_office: 'Out of office', bounce: 'Bounce', unsubscribe: 'Unsubscribe', other: 'Other'
 };
 export const labelAi = (l: string | null | undefined): string => (l ? AI_LABEL_TEXT[l] ?? l.replace(/_/g, ' ') : '');
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

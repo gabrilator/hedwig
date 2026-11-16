@@ -277,7 +277,7 @@ td .sm{font-size:11px;color:var(--mute);display:block;margin-top:2px}
 .lab.interested{border-color:var(--hot);color:var(--hot)}
 .lab.meeting{border-color:var(--bone);color:var(--bone)}
 .lab.question{border-color:var(--blue);color:var(--q-text)}
-.lab.not_interested,.lab.other,.lab.out_of_office{color:var(--mute)}
+.lab.replied,.lab.not_interested,.lab.other,.lab.out_of_office{color:var(--mute)}
 .lab.bounce,.lab.unsubscribe{border-color:var(--red);color:var(--red)}
 .lab.curious{border-color:var(--s-open);color:var(--s-open)}
 .badge{display:inline-block;min-width:18px;padding:1px 5px;font-size:10px;text-align:center;background:var(--red);color:#fff;border-radius:0;line-height:1.5}

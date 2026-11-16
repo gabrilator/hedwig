@@ -4,7 +4,8 @@
   import { invalidateAll } from '$app/navigation';
   import { toast } from '$lib/ui/motion.svelte';
   let { data, children } = $props();
-  const tabs = ['analytics', 'leads', 'sequence', 'schedule', 'options', 'agent'];
+  // The agent tab is for admins (ADMIN_EMAILS) only, like the Agents screen.
+  const tabs = $derived(['analytics', 'leads', 'sequence', 'schedule', 'options', ...(data.isAdmin ? ['agent'] : [])]);
   const cur = $derived(page.url.pathname.split('/')[3] ?? 'analytics');
   let renaming = $state(false);
   let nameInput: HTMLInputElement | undefined = $state();
@@ -25,7 +26,7 @@
     <div class="sub"><span class="pill {data.campaign.status}">{data.campaign.status}</span> &nbsp; {data.counts.total} leads · {data.campaign.steps.length} step{data.campaign.steps.length === 1 ? '' : 's'} · {data.accountsUsed.map((a: any) => a.address).join(', ') || 'no mailbox yet'} · {data.campaign.schedule.from}–{data.campaign.schedule.to} {data.campaign.schedule.timezone}{#if data.campaign.status === 'active'} · {data.windowNote}{/if}</div>
   </div>
   <div class="acts">
-    <a class="light" class:on={data.agent?.active} href="/campaigns/{data.campaign._id}/agent" title="Reply agent on this campaign"><i></i>{data.agent ? `${data.agent.name} ${data.agent.active ? 'on' : 'off'}` : 'no agent'}</a>
+    {#if data.isAdmin}<a class="light" class:on={data.agent?.active} href="/campaigns/{data.campaign._id}/agent" title="Reply agent on this campaign"><i></i>{data.agent ? `${data.agent.name} ${data.agent.active ? 'on' : 'off'}` : 'no agent'}</a>{/if}
     {#if data.campaign.status === 'active'}
       <form method="POST" action="/campaigns/{data.campaign.id ?? data.campaign._id}/options?/pause"><button class="btn">Pause campaign</button></form>
     {:else if data.campaign.status === 'paused'}

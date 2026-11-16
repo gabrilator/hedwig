@@ -29,14 +29,13 @@ visitors, with sign-up and the Claude Code and Codex setup for this address; wit
 Umami) · `ADMIN_EMAILS` (optional: comma-separated addresses that may open `/admin`, every account on the server; the
 account must already exist, because sign-up refuses these addresses) ·
 `BOOTSTRAP_USER_EMAIL` + `BOOTSTRAP_USER_PASSWORD` (the first user, created once) · `BOOTSTRAP_ORG_NAME` (optional) ·
-`TYPESAFE_API_KEY` (optional: Jev labels replies; console.typesafe.ai → API keys) · `GEMINI_API_KEY` (drafts, and the
-labels whenever Jev is not set or can't answer; with neither key replies are matched and stopped but not labelled) · `GEMINI_DAILY_CAP`
-(optional, default 300 model calls a day, Jev and Gemini together) · `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` (Microsoft 365 mailboxes,
+`TYPESAFE_API_KEY` (optional: Jev labels each reply meeting, interested or replied; console.typesafe.ai → API keys;
+without it replies are matched and stopped but not labelled) · `JEV_DAILY_CAP` (optional, default 300 Jev calls a day) · `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET` (Microsoft 365 mailboxes,
 below) · `RESEND_API_KEY` + `LOGIN_FROM` (optional: Hedwig's own emails to its users go through Resend; otherwise through the
-first connected mailbox).
+first connected mailbox of the workspace the email is about, for a team invitation that team's).
 
 `/health` answers `{"ok":true,"db":true,"worker":{"alive":true}}` when everything runs. The Setup screen shows the worker's
-heartbeat, every scheduled job, the last runs and the agent's model calls.
+heartbeat; the Agents screen (admins only) shows Jev's calls, cap and last error.
 
 ## Run it on your laptop
 
@@ -49,7 +48,7 @@ npm run dev                 # web on http://localhost:5180
 npm run worker              # in another terminal: the scheduler (sender, inbox sync, agent, DNS checks)
 ```
 
-Sign in with the bootstrap user, connect a mailbox on Emails, create a campaign, import a list, write the steps, pick a
+Sign in with the bootstrap user, connect a mailbox on Mailboxes, create a campaign, import a list, write the steps, pick a
 mailbox in Options, activate. `npm run check` and `npm test` before a pull request (`tests/db` needs the MongoDB in `.env`
 and uses the database `hedwig_test`).
 
@@ -67,6 +66,6 @@ In the Entra admin center:
 3. Certificates & secrets → New client secret → copy the **Value** → `MS_CLIENT_SECRET`.
 4. API permissions → Add → Microsoft Graph → Delegated: `User.Read`, `Mail.ReadWrite`, `Mail.Send`, `offline_access`
    → **Grant admin consent**.
-5. Put the values in the environment, restart, open **Emails → Connect with Microsoft**.
+5. Put the values in the environment, restart, open **Mailboxes → Connect with Microsoft**. (The redirect URI keeps its `/emails/…` path.)
 
 Nothing has to be switched on in Exchange: Hedwig sends and reads through the Graph API.

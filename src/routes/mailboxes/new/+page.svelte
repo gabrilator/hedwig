@@ -18,7 +18,7 @@
   });
 </script>
 <svelte:head><title>Connect a mailbox · Hedwig</title></svelte:head>
-<div class="top"><div><div class="lbl"><a href="/emails">← emails</a></div><h1 class="disp" style="margin-top:6px">Connect a mailbox</h1><div class="sub">any provider with IMAP and SMTP · the only exception is Microsoft 365, which needs its consent button</div></div></div>
+<div class="top"><div><div class="lbl"><a href="/mailboxes">← mailboxes</a></div><h1 class="disp" style="margin-top:6px">Connect a mailbox</h1><div class="sub">any provider with IMAP and SMTP · the only exception is Microsoft 365, which needs its consent button</div></div></div>
 <form class="panel" method="POST" use:enhance={({ action }) => { busy = action.search.replace('?/', ''); return async ({ update }) => { busy = ''; await update({ reset: false }); }; }} style="max-width:980px">
   <div class="steps"><button type="button" class:on={step === 1} onclick={() => (step = 1)}><b>01</b>Identity</button><button type="button" class:on={step === 2} onclick={() => (step = 2)}><b>02</b>Servers &amp; test</button></div>
   <div class="bd" style:display={step === 1 ? '' : 'none'}>

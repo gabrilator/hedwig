@@ -26,13 +26,19 @@ export interface OrgDoc {
   members: { userId: ObjectId; role: OrgRole; addedAt: Date }[];
   createdAt: Date;
 }
+/** An invitation to an org (`team.ts`). Joining needs the emailed link: only the token's SHA-256 is kept, and it is removed once used. */
 export interface InviteDoc {
   _id: ObjectId;
   orgId: ObjectId;
   email: string;
   invitedBy: ObjectId;
   createdAt: Date;
+  /** absent on invites from before join links (2026-11): those need "resend" to get one */
+  tokenHash?: string;
+  expiresAt?: Date;
+  sentAt?: Date;
   acceptedAt?: Date;
+  acceptedBy?: ObjectId;
 }
 
 export type AccountKind = 'microsoft' | 'imapSmtp';
@@ -102,10 +108,11 @@ export interface CampaignDoc {
   openTracking: boolean;
   testRecipient: string;
   unsubscribeLine: string;
-  /** null = the space's built-in "Reply triage" agent · an id = that agent · agentOff = no agent on this campaign */
-  agentId?: ObjectId | null;
+  /** agentOff = no agent on this campaign; otherwise the space's agent (Triage) reads its replies */
   agentOff?: boolean;
-  agentRules: { if: string; then: string }[];
+  /** legacy: a custom agent and rules for Gemini drafts, from before 2026-11; ignored */
+  agentId?: ObjectId | null;
+  agentRules?: { if: string; then: string }[];
   createdAt: Date;
   updatedAt: Date;
   startedAt?: Date;
@@ -186,11 +193,12 @@ export interface SendDoc {
 }
 
 export type MessageKind = 'sent' | 'reply' | 'bounce' | 'ooo' | 'test' | 'manual';
-export const AI_LABELS = ['interested', 'meeting', 'question', 'not_interested', 'out_of_office', 'bounce', 'unsubscribe', 'other'] as const;
+/** Jev's three labels. Messages labelled before 2026-11 may carry older ones (question, not_interested, …); screens show them as they are. */
+export const AI_LABELS = ['meeting', 'interested', 'replied'] as const;
 export type AiLabel = (typeof AI_LABELS)[number];
 /**
  * The reply agent's work on one inbound message. `status` is the idempotency lock: a message is claimed pending → running
- * with one atomic findOneAndUpdate, so the model is called once per reply (twice at most after a failure, never in parallel).
+ * with one atomic findOneAndUpdate, so Jev is called once per reply (twice more at most after a failure, never in parallel).
  */
 export interface AiWork {
   status: 'pending' | 'running' | 'done' | 'failed' | 'skipped';
@@ -205,6 +213,7 @@ export interface AiWork {
   /** Jev: the probability of every label, so a later look can judge the thresholds */
   odds?: Partial<Record<AiLabel, number>>;
   reason?: string;
+  /** legacy: written by the Gemini agent before 2026-11; no longer produced */
   language?: string;
   draft?: string;
   draftAt?: Date;
@@ -267,29 +276,29 @@ export interface SuppressionDoc {
   reason: string;
   at: Date;
 }
-export type AgentMode = 'classify' | 'draft';
+/** The space's reply agent (Triage): one per space, created on first use. It labels replies with Jev; admins switch it on or off. */
 export interface AgentDoc {
   _id: ObjectId;
   space: SpaceKey;
   ownerUserId: ObjectId;
   name: string;
-  model: string;
-  persona: string;
-  /** legacy: free labels from v1; the classifier uses AI_LABELS */
-  labels?: string[];
-  /** classify: label every reply · draft: label it and write an answer for you to review. Nothing ever sends by itself. */
-  mode: AgentMode;
   active: boolean;
-  /** the space's "Reply triage" agent, created by Hedwig; used by every campaign without a choice of its own; cannot be deleted */
+  /** the space's agent, created by Hedwig; cannot be deleted. Agents without it are legacy custom agents, no longer used. */
   builtin?: boolean;
+  /** legacy (Gemini agents, before 2026-11): ignored */
+  model?: string;
+  persona?: string;
+  mode?: 'classify' | 'draft';
+  labels?: string[];
   createdAt: Date;
 }
-/** One row per model call, so the Setup screen can show exactly how often the model is asked. */
+/** One row per classifier call, so the Agents screen can show exactly how often Jev is asked. */
 export interface LlmCallDoc {
   _id: ObjectId;
   space: SpaceKey;
   at: Date;
   model: string;
+  /** 'draft' only on rows from before 2026-11 */
   purpose: 'classify' | 'draft';
   messageId?: ObjectId;
   ok: boolean;

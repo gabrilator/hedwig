@@ -21,13 +21,15 @@ The details behind each screen, and the rules the code keeps.
   mailbox pauses itself when bounces reach 5% of a week's sends (editable, or off).
 - **Inbox**: every conversation that got an answer, filtered by status, agent label and campaign. Reply from the mailbox
   that holds the thread, threaded on their last message; set the lead's status from the thread.
-- **Reply agent**: a built-in "Triage" agent reads each reply once and labels its sentiment: interested, meeting,
-  question, not interested, out of office, bounce, unsubscribe, other. The labels come from Jev, TypeSafe's classifier, when
-  its key is set; Gemini labels when there is no key or Jev can't answer (a rejected key, no room, an outage). Drafts always
-  come from Gemini. Interested, meeting, not interested and unsubscribe set
-  the lead's status when the agent is at least 75% sure; once you set a status by hand the agent leaves that lead alone.
-  Interested and meeting email the campaign's owner. On request the agent drafts an answer for you to edit and send. An
-  agent never sends anything by itself.
+- **Reply agent**: each workspace has one agent, "Triage", that reads each reply once with Jev, TypeSafe's classifier, and
+  labels it meeting, interested or replied. Without `TYPESAFE_API_KEY` nothing is labelled. Meeting and interested set the
+  lead's status when Jev is at least 75% sure, and email the campaign's owner; replied changes nothing. Once you set a status
+  by hand the agent leaves that lead alone. Bounces and out-of-office notes are sorted by the inbox sync before the agent.
+  An agent never writes or sends anything. The Agents screen (on/off, Jev's usage) is for `ADMIN_EMAILS` only.
+- **Team**: an owner invites by email; the invitation is a one-time link that only the invited address can use, sent from the
+  team's own mailbox (or Resend). Signing up with an invited address does not join a team; opening the link does.
+- **MCP**: assistants connect once per account and reach every workspace you are in, one at a time; the MCP tab lists
+  your connections and disconnects them.
 - **Curious**: once a day, people who opened a campaign's emails more often than they got them (two emails, three opens)
   and never replied are flagged curious, apart from their status. A reply clears it; you can set or reset it by hand.
 - **Analytics**: sent, opens (once per email, machine prefetch discounted), replies, bounces, opportunities; per day, per
@@ -85,13 +87,12 @@ link if it gets out. An app or an agent can read the same two addresses with a p
   repaired by the reconciler from the Sent folder and a step is never sent twice.
 - **Inbox sync** (every two minutes): Graph delta or IMAP UIDs since last time; match, classify (bounce, out of office,
   reply), update the lead, cancel the remaining steps, suppress on bounce or unsubscribe; then hand new replies to the agent.
-- **Reply agent**: a reply is claimed atomically before the model is called, so it is labelled once (Jev, or Gemini when Jev can't answer),
-  retried at most twice after a failure, and never in parallel; a draft is at most one more Gemini call; a hard daily cap
-  stops runaway usage. A status set by hand is final: the classifier skips that lead.
+- **Reply agent**: a reply is claimed atomically before Jev is called, so it is labelled once, retried at most twice after a
+  failure, and never in parallel; a hard daily cap (`JEV_DAILY_CAP`) stops runaway usage. A status set by hand is final: the classifier skips that lead.
 - **Tracking**: one pixel per email on the tracking host; each person's opens recorded with their time, prefetch discounted.
   `List-Unsubscribe` and `List-Unsubscribe-Post` headers on every real send from an IMAP/SMTP mailbox, so mail clients show
   their own unsubscribe link; an optional unsubscribe line per campaign.
 - **Counts**: every number on a screen is a count on the `events` collection, kept in `dailyStats` and re-derived hourly.
 
 Stack: SvelteKit (adapter-node), MongoDB, Agenda for the worker, Luxon for timezones, Nodemailer and ImapFlow for mail,
-Jev and Gemini for the agent. The rules the code keeps are in `CLAUDE.md`.
+Jev for the agent. The rules the code keeps are in `CLAUDE.md`.

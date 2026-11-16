@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_NAME, DEFAULT_MODEL, DEFAULT_PERSONA } from './agent';
+import { DEFAULT_AGENT_NAME } from './agent';
 import { z } from 'zod';
 import { ObjectId, type Db } from 'mongodb';
 import { cols } from './db';
@@ -21,8 +21,7 @@ export const campaignPatch = z.object({
   schedule: scheduleInput.optional(), accountIds: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(30).optional(),
   dailyLimit: z.number().int().min(1).max(10000).optional(), stopOnReply: z.boolean().optional(), oooStops: z.boolean().optional(), openTracking: z.boolean().optional(), unsubscribeLine: z.string().max(1000).optional(),
   testRecipient: z.union([z.string().email(), z.literal('')]).optional(),
-  agentId: z.string().regex(/^[a-f0-9]{24}$/i).nullable().optional(), agentOff: z.boolean().optional(),
-  agentRules: z.array(z.object({ if: z.string().max(2000), then: z.string().max(2000) }).strict()).max(50).optional()
+  agentOff: z.boolean().optional()
 }).strict();
 
 export async function createCampaign(db: Db, actor: Actor, input: { name: string; timezone: string }) {
@@ -42,10 +41,6 @@ export async function updateCampaign(db: Db, actor: Actor, id: string, input: un
       const ids = patch.accountIds.map(objectId);
       if (await cols(db).emailAccounts.countDocuments({ _id: { $in: ids }, space: actor.space }) !== new Set(patch.accountIds).size) throw new OperationError('invalid_input', 'Choose mailboxes from this workspace.');
       changes.accountIds = ids;
-    }
-    if (patch.agentId !== undefined) {
-      if (patch.agentId && !await cols(db).agents.findOne({ _id: objectId(patch.agentId), space: actor.space })) throw new OperationError('not_found', 'Agent not found in this workspace.');
-      changes.agentId = patch.agentId ? objectId(patch.agentId) : null;
     }
     if (patch.steps) changes.steps = patch.steps.map((s, i) => ({ ...s, body: sanitizeBody(s.body), delayDays: i === 0 ? 0 : s.delayDays }));
     await cols(db).campaigns.updateOne({ _id: campaign._id }, { $set: changes });
@@ -149,9 +144,10 @@ export async function campaignState(db: Db, actor: Actor, id: string) {
   try { window = { ...windowFor(campaign.schedule, now), nextOpen: nextOpen(campaign.schedule, now) }; } catch { window = { reason: 'Invalid schedule' }; }
   const { editLock, editLockedAt, ...safe } = campaign;
   const inFlight = await c.sends.countDocuments({ campaignId: campaign._id, $or: [{ status: { $in: ['claimed', 'unknown'] } }, { inFlight: true }, { status: 'planned', ids: { $exists: true } }] });
-  const agent = campaign.agentOff ? null : await c.agents.findOne({ space: actor.space, ...(campaign.agentId ? { _id: campaign.agentId } : { builtin: true }) });
-  const agentSettings = campaign.agentOff ? null : agent ?? { name: DEFAULT_AGENT_NAME, model: DEFAULT_MODEL, persona: DEFAULT_PERSONA, mode: 'classify', active: true, builtin: true };
-  return { campaign: safe, agent: agentSettings, editing: !!editLock, safeToEdit: campaign.status !== 'active' && !editLock && inFlight === 0, inFlight, ...(await readiness(db, campaign)), window, mailboxes: capacities, asOf: now };
+  const { agentId, agentRules, ...shown } = safe; void agentId; void agentRules;
+  // Agents are for admins: only their connections see which agent reads a campaign's replies.
+  const agent = actor.admin && !campaign.agentOff ? await c.agents.findOne({ space: actor.space, builtin: true }, { projection: { name: 1, active: 1 } }) : null;
+  return { campaign: shown, ...(actor.admin ? { agent: campaign.agentOff ? null : { name: agent?.name ?? DEFAULT_AGENT_NAME, active: agent?.active ?? true } } : {}), editing: !!editLock, safeToEdit: campaign.status !== 'active' && !editLock && inFlight === 0, inFlight, ...(await readiness(db, campaign)), window, mailboxes: capacities, asOf: now };
 }
 export async function campaignStats(db: Db, actor: Actor, id: string, from: string, to: string) {
   const campaign = await campaignFor(db, actor, id);

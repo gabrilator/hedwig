@@ -7,7 +7,7 @@
   import ConfirmDelete from '$lib/ui/ConfirmDelete.svelte';
   import Owl from '$lib/ui/Owl.svelte';
   import { fly, toast } from '$lib/ui/motion.svelte';
-  import { ago, fmtDT, labelAi, labelStatus, textToParagraphs } from '$lib/ui/format';
+  import { ago, fmtDT, labelAi, labelStatus } from '$lib/ui/format';
   let { data, form } = $props();
   const link = (patch: Record<string, string | null>) => { const u = new URL(page.url); for (const [k, v] of Object.entries(patch)) { if (v === null || v === '') u.searchParams.delete(k); else u.searchParams.set(k, v); } return u.pathname + u.search; };
   const t = $derived(data.thread);
@@ -36,14 +36,14 @@
   const threadWord = (n: number) => n === 1 ? 'this thread' : `these ${n} threads`;
   const KEEPS = 'The emails stay in your mailbox; sent messages and the lead status are kept.';
   const pctOf = (x: number | null | undefined) => `${Math.round((x ?? 0) * 100)}%`;
-  const STATUS_ROWS = ['replied', 'interested', 'meeting', 'won', 'not_interested', 'question', 'bounced', 'unsubscribed', 'paused', 'contacted', 'opened'];
+  const STATUS_ROWS = ['replied', 'interested', 'meeting', 'won', 'not_interested', 'bounced', 'unsubscribed', 'paused', 'contacted', 'opened'];
 </script>
 <svelte:head><title>Inbox · Hedwig</title></svelte:head>
 <ConfirmDelete bind:this={deleteConfirmation} />
 {#if form?.error}<div class="flash err" role="alert">{form.error}</div>{/if}
 <div class="top">
   <div><h1 class="disp">Inbox</h1><div class="sub">every answer to a campaign of {data.space?.name} · {data.counts.all} threads{#if data.counts.unread} · <b class="r">{data.counts.unread} unread</b>{/if}</div></div>
-  <div class="acts"><a class="light" class:on={data.canLabel} href="/agents"><i></i>{data.canLabel ? `reply agent on · labels by ${data.labeller}` : 'reply agent: no key'}</a></div>
+  {#if data.isAdmin}<div class="acts"><a class="light" class:on={data.canLabel} href="/agents"><i></i>{data.canLabel ? 'reply agent on · labels by Jev' : 'reply agent: no Jev key'}</a></div>{/if}
 </div>
 <div class="inbox" class:viewing={!!t}>
   <div class="side-list">
@@ -51,9 +51,7 @@
     <a href={link({ status: null, label: null, page: null })} class:on={!data.status && !data.label}><span>All</span><b>{data.counts.all}</b></a>
     <a href={link({ status: 'unread', label: null, page: null })} class:on={data.status === 'unread'}><span>Unread</span><b>{data.counts.unread}</b></a>
     {#each STATUS_ROWS as s}
-      {#if s === 'question'}
-        {#if data.counts.label.question}<a href={link({ status: null, label: 'question', page: null })} class:on={data.label === 'question'}><span>Question</span><b>{data.counts.label.question}</b></a>{/if}
-      {:else if data.counts.status[s] || ['replied', 'interested', 'meeting'].includes(s)}
+      {#if data.counts.status[s] || ['replied', 'interested', 'meeting'].includes(s)}
         <a href={link({ status: s, label: null, page: null })} class:on={data.status === s}><span>{labelStatus(s)}</span><b>{data.counts.status[s] ?? 0}</b></a>
       {/if}
     {/each}
@@ -142,13 +140,12 @@
           </div>
           {#if t.lastReply?.ai?.reason}<div style="font-family:var(--sans)">{t.lastReply.ai.reason}</div>{/if}
           {#if t.lead.statusBy}<div class="mute">Status set by hand by {t.lead.statusBy}: the agent no longer labels this lead. Label again hands it back.</div>{/if}
-          {#if !data.canLabel}<div>No model key on the server yet: add <code>TYPESAFE_API_KEY</code> (Jev) or <code>GEMINI_API_KEY</code> to the environment and restart. Labels start from then on.</div>
+          {#if !data.canLabel}<div>No Jev key on the server yet: add <code>TYPESAFE_API_KEY</code> to the environment and restart. Labels start from then on.</div>
           {/if}
           {#if t.lastReply && data.canLabel && t.agent.active}
             <div class="row">
-              {#if data.canDraft}<form method="POST" action="?/draft" use:enhance={run('draft')}><input type="hidden" name="lead" value={t.lead._id} /><button class="btn sm" type="submit" disabled={busy === 'draft'}>{busy === 'draft' ? 'Writing…' : t.lastReply.draft ? 'Draft again' : 'Draft an answer'}</button></form>{/if}
               <form method="POST" action="?/classify" use:enhance={run('classify')}><input type="hidden" name="lead" value={t.lead._id} /><button class="btn sm ghost" type="submit" disabled={busy === 'classify'}>{busy === 'classify' ? 'Reading…' : 'Label again'}</button></form>
-              <span class="mute" style="font-size:11px">each button is one model call</span>
+              <span class="mute" style="font-size:11px">one Jev call</span>
             </div>
           {/if}
         </div>
@@ -171,14 +168,6 @@
             </div>
           {/each}
         </div>
-
-        {#if t.lastReply?.draft}
-          <div class="stack" style="gap:8px">
-            <div class="lbl">the agent's draft · not sent · yours to edit</div>
-            <div class="draftbox">{t.lastReply.draft}</div>
-            <div><button type="button" class="btn sm" onclick={() => { body = textToParagraphs(t.lastReply.draft); }}>Put it in the editor</button></div>
-          </div>
-        {/if}
 
         <form class="compose stack" style="gap:10px" method="POST" action="?/reply" use:enhance={run('send')}>
           <input type="hidden" name="lead" value={t.lead._id} />

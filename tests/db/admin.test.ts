@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ObjectId, type Db } from 'mongodb';
 import { closeDb, cols, ensureIndexes, getDb } from '../../src/lib/server/db';
-import { signup } from '../../src/lib/server/auth';
+import { bootstrap, signup } from '../../src/lib/server/auth';
 import { adminOverview, notifyAdminsOfSignup } from '../../src/lib/server/admin';
 import { isAdminEmail } from '../../src/lib/server/env';
 import { orgSpace, personalSpace } from '../../src/lib/server/scope';
@@ -20,6 +20,21 @@ describe('admin', () => {
     await expect(signup(db, { email: 'BOSS@example.com', name: 'x', password: 'secret1' })).rejects.toThrow(/cannot sign up/);
     delete process.env.ADMIN_EMAILS;
     expect(isAdminEmail('boss@example.com')).toBe(false);
+  });
+
+  it('the first user from the server environment may be an admin address (it used to fail every request at boot)', async () => {
+    const email = `boot${Date.now()}@example.com`;
+    process.env.ADMIN_EMAILS = email;
+    process.env.BOOTSTRAP_USER_EMAIL = email;
+    process.env.BOOTSTRAP_USER_PASSWORD = 'boot-test-pass';
+    delete process.env.BOOTSTRAP_ORG_NAME;
+    try {
+      await expect(signup(db, { email, name: 'x', password: 'boot-test-pass' })).rejects.toThrow(/cannot sign up/);
+      await bootstrap(db);
+      expect((await cols(db).users.findOne({ email }))?.email).toBe(email);
+      await bootstrap(db); // idempotent
+      expect(await cols(db).users.countDocuments({ email })).toBe(1);
+    } finally { delete process.env.ADMIN_EMAILS; delete process.env.BOOTSTRAP_USER_EMAIL; delete process.env.BOOTSTRAP_USER_PASSWORD; }
   });
 
   it('counts sign-ups and each account’s mailboxes, campaigns and sends across its spaces', async () => {

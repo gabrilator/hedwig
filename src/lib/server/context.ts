@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import { ObjectId, type Db } from 'mongodb';
 import { cols } from './db';
+import { isAdminEmail } from './env';
 import type { SpaceInfo } from './scope';
 import type { UserDoc } from './types';
 
@@ -8,6 +9,12 @@ export interface Ctx { user: UserDoc; space: SpaceInfo; spaces: SpaceInfo[]; spa
 export function ctx(locals: App.Locals): Ctx {
   if (!locals.user || !locals.space) redirect(303, '/login');
   return { user: locals.user, space: locals.space, spaces: locals.spaces, spaceKeys: locals.spaces.map((s) => s.key) };
+}
+/** The reply agents are for admins (ADMIN_EMAILS) only: anyone else gets a 404, as if the screen were not there. */
+export function adminCtx(locals: App.Locals): Ctx {
+  const c = ctx(locals);
+  if (!isAdminEmail(c.user.email)) error(404, 'Not found');
+  return c;
 }
 /** Anything Mongo gives us → plain JSON (ObjectId → hex string, Date → ISO string) so it can cross to the page. */
 export const plain = <T = any>(x: unknown): T => JSON.parse(JSON.stringify(x));

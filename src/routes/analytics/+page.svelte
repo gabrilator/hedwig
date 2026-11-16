@@ -27,7 +27,7 @@
 </div>
 <div class="grid2" style="margin-top:18px">
   <div class="panel">
-    <div class="hd"><h3>Deliverability by mailbox</h3><div class="acts">{#each [7, 14, 28] as d}<a class="btn sm" class:ghost={data.mb !== d} href={q({ mb: String(d) })}>{d}d</a>{/each}<a class="btn sm ghost" href="/emails">manage</a></div></div>
+    <div class="hd"><h3>Deliverability by mailbox</h3><div class="acts">{#each [7, 14, 28] as d}<a class="btn sm" class:ghost={data.mb !== d} href={q({ mb: String(d) })}>{d}d</a>{/each}<a class="btn sm ghost" href="/mailboxes">manage</a></div></div>
     <div class="wrap cards"><table style="min-width:0">
       <thead><tr><th>Mailbox</th><th>DNS</th><th class="rt">Today</th><th class="rt">Sent {data.mb}d</th><th class="rt">Bounce {data.mb}d</th><th class="rt">Reply {data.mb}d</th><th>Sync</th></tr></thead>
       <tbody>

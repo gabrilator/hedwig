@@ -6,7 +6,7 @@
   let renaming = $state<string | null>(null);
   let deleting = $state<string | null>(null);
   let typed = $state('');
-  $effect(() => { if (form?.note) { toast(form.note); renaming = null; deleting = null; typed = ''; invalidateAll(); } if (form?.error) toast(form.error, 'err', 6000); });
+  $effect(() => { if (form?.note) { toast(form.note); renaming = null; deleting = null; typed = ''; invalidateAll(); } if (form?.warn) { toast(form.warn, 'err', 10000); invalidateAll(); } if (form?.error) toast(form.error, 'err', 6000); });
 </script>
 <svelte:head><title>Team · Hedwig</title></svelte:head>
 <div class="top">
@@ -31,11 +31,12 @@
           </span></div>
         {/each}
         {#each o.invites as i}
-          <div class="member"><span class="mute">{i.email} · invited</span><span class="acts"><span class="role">pending</span><form method="POST" action="?/cancelInvite" use:enhance><input type="hidden" name="invite" value={i.id} /><button class="linkbtn mute" type="submit">cancel</button></form></span></div>
+          <div class="member"><span class="mute">{i.email} · {i.live ? 'invited' : 'link expired'}</span><span class="acts" style="gap:8px"><span class="role">pending</span>{#if o.myRole === 'owner'}<form method="POST" action="?/invite" use:enhance><input type="hidden" name="org" value={o.id} /><input type="hidden" name="email" value={i.email} /><button class="linkbtn mute" type="submit">resend</button></form><form method="POST" action="?/cancelInvite" use:enhance><input type="hidden" name="invite" value={i.id} /><button class="linkbtn mute" type="submit">cancel</button></form>{/if}</span></div>
         {/each}
       </div>
       {#if o.myRole === 'owner'}
         <form class="acts" style="margin-top:14px" method="POST" action="?/invite" use:enhance><input type="hidden" name="org" value={o.id} /><input class="in" name="email" type="email" style="width:auto;flex:1" placeholder="invite by email" required /><button class="btn sm" type="submit">Invite</button></form>
+        <div class="help" style="margin-top:6px">They get a link by email and join {o.name} only by opening it, signed in as that address. Sent from {data.senders[o.id]?.via === 'none' ? 'nowhere yet: add a mailbox to this team or a Resend key to the server' : data.senders[o.id]?.label}.</div>
       {/if}
       <div class="acts" style="margin-top:10px">
         {#if data.space?.key !== o.key}<form method="POST" action="?/switch"><input type="hidden" name="space" value={o.key} /><button class="btn sm ghost" type="submit">Switch to {o.name}</button></form>{/if}

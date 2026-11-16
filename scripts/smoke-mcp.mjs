@@ -53,9 +53,13 @@ try {
   }
   assert.equal((await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'smoke', version: '1' } })).serverInfo.name, 'hedwig');
   const list = await rpc('tools/list', {});
-  for (const name of ['campaign_start', 'campaign_test', 'inbox_reply', 'mailbox_update', 'agent_save', 'team_update']) assert.ok(list.tools.some(t => t.name === name), `${name} is discoverable`);
+  for (const name of ['campaign_start', 'campaign_test', 'inbox_reply', 'mailbox_update', 'team_update', 'workspace_switch']) assert.ok(list.tools.some(t => t.name === name), `${name} is discoverable`);
   assert.match((await rpc('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'smoke', version: '1' } })).instructions, /Default workflow/);
   async function call(name, args) { const result = await rpc('tools/call', { name, arguments: args }); assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent; }
+  // not an ADMIN_EMAILS account: the agent permissions it was offered are dropped, and no agent tool exists for it
+  assert.ok(!list.tools.some(t => t.name.startsWith('agent_')), 'agent tools are for admins only');
+  assert.ok(!(await mongo.db(database).collection('oauthGrants').findOne({ userId: user._id.toHexString() })).scope.some(s => s.startsWith('agents:')));
+  assert.equal((await call('workspace_list', {})).current, `user:${user._id}`);
   const tableArgs = { requestId: 'smoke-table-create', name: 'Hiring prospects', columns: [{ key: 'signal', label: 'Hiring signal', type: 'text' }] };
   const table = await call('research_create', tableArgs); assert.equal((await call('research_create', tableArgs))._id, table._id);
   const rows = await call('research_upsert', { requestId: 'smoke-upsert-rows', tableId: table._id, rows: [{ email: 'contact@example.org', fields: { signal: { value: 'Hiring engineers', kind: 'observed', sources: ['https://example.org/careers'] } } }] }); assert.equal(rows.saved, 1);
@@ -129,12 +133,14 @@ try {
   assert.equal(await mongo.db(database).collection('leads').countDocuments({ campaignId: new ObjectId(cp.id), email: 'list@example.org' }), 1);
   const revoke = await fetchLocal('/oauth/revoke', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: token.refresh_token }) }); assert.equal(revoke.status, 200);
   const revoked = await fetchLocal('/mcp', { method: 'POST', headers: { authorization: `Bearer ${token.access_token}`, 'content-type': 'application/json' }, body: '{}' }); assert.equal(revoked.status, 401);
-  for (const [oldPath, newPath] of [['/research', '/lists'], ['/connections', '/setup#connections']]) {
-    const response = await fetchLocal(oldPath, { headers: { cookie } }); assert.equal(response.status, 303); assert.equal(response.headers.get('location'), newPath);
+  for (const [oldPath, newPath] of [['/research', '/lists'], ['/emails', '/mailboxes']]) {
+    const response = await fetchLocal(oldPath, { headers: { cookie } }); assert.ok([303, 308].includes(response.status)); assert.equal(response.headers.get('location'), newPath);
   }
   const setupHtml = await (await fetchLocal('/setup', { headers: { cookie } })).text();
   // The bootstrap account runs this server and should see worker health; ordinary users should not.
-  assert.ok(setupHtml.includes('<h3>Worker</h3>')); assert.ok(!setupHtml.includes('Emails Hedwig sends itself')); assert.ok(setupHtml.includes('Assistant connections'));
+  assert.ok(setupHtml.includes('<h3>Worker</h3>')); assert.ok(!setupHtml.includes('Emails Hedwig sends itself')); assert.ok(!setupHtml.includes('Reply agent'));
+  const mcpHtml = await (await fetchLocal('/connections', { headers: { cookie } })).text();
+  assert.ok(mcpHtml.includes('Connect an assistant')); assert.ok(mcpHtml.includes('Your connections'));
   const memberEmail = 'member@example.com';
   await mongo.db(database).collection('users').insertOne({ _id: new ObjectId(), email: memberEmail, name: 'Member', passwordHash: user.passwordHash, createdAt: new Date() });
   const memberLogin = await fetchLocal('/login', { method: 'POST', headers: { accept: 'text/html', origin, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ email: memberEmail, password }) });

@@ -6,9 +6,10 @@ import { ctx, oid, plain, str } from '$lib/server/context';
 import { SPACE_COOKIE, normalizeEmail, passwordOk } from '$lib/server/auth';
 import { hashPassword, verifyPassword } from '$lib/server/crypto';
 import { orgSpace, personalSpace } from '$lib/server/scope';
-import { secureCookies } from '$lib/server/env';
-import { sendSystemMail, systemSender } from '$lib/server/systemMail';
-import { isEmail } from '$lib/server/render';
+import { envOpt, secureCookies } from '$lib/server/env';
+import { systemSender } from '$lib/server/systemMail';
+import { cancelInvite, deleteOrganization, inviteToOrg } from '$lib/server/team';
+import { OperationError } from '$lib/server/operations';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const c = ctx(locals); const db = await getDb(); const col = cols(db);
@@ -25,10 +26,10 @@ export const load: PageServerLoad = async ({ locals }) => {
     orgs: plain(orgs.map((o) => ({
       id: o._id.toHexString(), name: o.name, key: orgSpace(o._id), myRole: o.members.find((m) => m.userId.equals(c.user._id))?.role,
       members: o.members.map((m) => ({ id: m.userId.toHexString(), email: uname.get(m.userId.toHexString())?.email ?? '?', name: uname.get(m.userId.toHexString())?.name ?? '', role: m.role })),
-      invites: invites.filter((i) => i.orgId.equals(o._id)).map((i) => ({ id: i._id.toHexString(), email: i.email, createdAt: i.createdAt })),
+      invites: invites.filter((i) => i.orgId.equals(o._id)).map((i) => ({ id: i._id.toHexString(), email: i.email, createdAt: i.createdAt, sentAt: i.sentAt ?? null, live: !!i.tokenHash && !!i.expiresAt && i.expiresAt > new Date() })),
       ...counts.find((x) => x.id === o._id.toHexString())
     }))),
-    personal, sender: await systemSender(db, c.space.key)
+    personal, senders: Object.fromEntries(await Promise.all(orgs.map(async (o) => [o._id.toHexString(), await systemSender(db, orgSpace(o._id))])))
   };
 };
 
@@ -50,22 +51,16 @@ export const actions: Actions = {
     cookies.set(SPACE_COOKIE, orgSpace(_id), { path: '/', httpOnly: true, sameSite: 'lax', secure: secureCookies(), maxAge: 60 * 60 * 24 * 365 });
     return { note: `${name} created` };
   },
-  invite: async ({ request, locals }) => {
-    const c = ctx(locals); const db = await getDb(); const col = cols(db); const fd = await request.formData();
-    const orgId = oid(str(fd, 'org')); const email = normalizeEmail(str(fd, 'email'));
-    if (!isEmail(email)) return fail(400, { error: 'That is not an email address.' });
-    const org = await col.orgs.findOne({ _id: orgId, members: { $elemMatch: { userId: c.user._id, role: 'owner' } } });
-    if (!org) return fail(400, { error: 'Only an owner can invite.' });
-    const user = await col.users.findOne({ email });
-    if (user) {
-      if (org.members.some((m) => m.userId.equals(user._id))) return fail(400, { error: `${email} is already a member.` });
-      await col.orgs.updateOne({ _id: orgId }, { $push: { members: { userId: user._id, role: 'member', addedAt: new Date() } } });
-      return { note: `${email} added to ${org.name}` };
-    }
-    await col.invites.updateOne({ orgId, email }, { $setOnInsert: { invitedBy: c.user._id, createdAt: new Date() } }, { upsert: true });
-    let mailed = { sent: false, via: 'none' };
-    try { mailed = await sendSystemMail(db, c.space.key, { to: email, subject: `${c.user.name || c.user.email} invited you to ${org.name} on Hedwig`, text: `${c.user.name || c.user.email} added you to "${org.name}" on Hedwig.\n\nSign up with this email address and the campaigns will be there:\n${new URL(request.url).origin}/signup\n` }); } catch { /* shown below */ }
-    return { note: mailed.sent ? `Invitation emailed to ${email} from ${mailed.via}` : `${email} is invited: when they sign up with that address they join ${org.name}. No invite email went out (no Resend key and no connected mailbox in this space).` };
+  /** Emails a join link; the person joins only by opening it, signed in as that address. Sending it again replaces the link. */
+  invite: async ({ request, locals, url }) => {
+    const c = ctx(locals); const db = await getDb(); const fd = await request.formData();
+    try {
+      const r = await inviteToOrg(db, { orgId: oid(str(fd, 'org')), inviter: c.user, email: normalizeEmail(str(fd, 'email')), origin: envOpt('ORIGIN') || url.origin });
+      if (r.alreadyMember) return fail(400, { error: `${r.email} is already in ${r.org}.` });
+      if (r.emailed) return { note: `Invitation emailed to ${r.email} from ${r.via}. They join ${r.org} when they open the link.` };
+      // saved, so the list must show it: a warning, not a failure
+      return { warn: `The invitation to ${r.email} is saved, but the email did not go out: ${r.error ?? 'unknown error'} Fix that, then press resend.` };
+    } catch (e) { if (e instanceof OperationError) return fail(400, { error: e.message }); throw e; }
   },
   /** An owner removes anyone; anyone removes themselves (leaves), as long as an owner stays behind. */
   remove: async ({ request, locals, cookies }) => {
@@ -128,27 +123,14 @@ export const actions: Actions = {
     if (!org) return fail(400, { error: 'Only an owner can delete an org.' });
     if (str(fd, 'confirm') !== org.name) return fail(400, { error: `Type the org's name exactly (${org.name}) to delete it.` });
     const space = orgSpace(orgId);
-    const campaignIds = (await col.campaigns.find({ space }, { projection: { _id: 1 } }).toArray()).map((x) => x._id);
-    await col.sends.deleteMany({ campaignId: { $in: campaignIds } });
-    await col.leads.deleteMany({ campaignId: { $in: campaignIds } });
-    await col.messages.deleteMany({ space });
-    await col.events.deleteMany({ space });
-    await col.dailyStats.deleteMany({ space });
-    await col.imports.deleteMany({ space });
-    await col.campaigns.deleteMany({ space });
-    await col.emailAccounts.deleteMany({ space });
-    await col.suppressions.deleteMany({ space });
-    await col.agents.deleteMany({ space });
-    await col.llmCalls.deleteMany({ space });
-    await col.feedTokens.deleteMany({ space });
-    await col.invites.deleteMany({ orgId });
-    await col.orgs.deleteOne({ _id: orgId });
+    const campaigns = await col.campaigns.countDocuments({ space });
+    await deleteOrganization(db, orgId);
     if (c.space.key === space) cookies.set(SPACE_COOKIE, personalSpace(c.user._id), { path: '/', httpOnly: true, sameSite: 'lax', secure: secureCookies(), maxAge: 60 * 60 * 24 * 365 });
-    return { note: `${org.name} deleted, with its ${campaignIds.length} campaign${campaignIds.length === 1 ? '' : 's'}` };
+    return { note: `${org.name} deleted, with its ${campaigns} campaign${campaigns === 1 ? '' : 's'}` };
   },
   cancelInvite: async ({ request, locals }) => {
     const c = ctx(locals); const db = await getDb(); const fd = await request.formData();
-    await cols(db).invites.deleteOne({ _id: oid(str(fd, 'invite')), invitedBy: c.user._id });
-    return { note: 'Invitation cancelled' };
+    if (!await cancelInvite(db, oid(str(fd, 'invite')), c.user._id)) return fail(400, { error: 'Only an owner of the team can cancel its invitations.' });
+    return { note: 'Invitation cancelled: its link no longer works' };
   }
 };

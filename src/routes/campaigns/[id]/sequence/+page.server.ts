@@ -56,7 +56,7 @@ const rawActions: Actions = {
     const account = accountId
       ? await col.emailAccounts.findOne({ _id: oid(accountId), space: { $in: c.spaceKeys } })
       : await col.emailAccounts.findOne({ _id: { $in: campaign.accountIds }, status: 'active' }) ?? await col.emailAccounts.findOne({ space: { $in: c.spaceKeys }, status: 'active' });
-    if (!account) return fail(400, { testError: 'Connect a mailbox first (Emails screen). Test sends go out through a real mailbox.' });
+    if (!account) return fail(400, { testError: 'Connect a mailbox first (Mailboxes screen). Test sends go out through a real mailbox.' });
     const lead = await col.leads.findOne({ campaignId: campaign._id }, { projection: { vars: 1, email: 1 } });
     try {
       const r = await sendTest(db, campaign, i, account, to, lead ? { vars: lead.vars, email: lead.email, thread: undefined } : undefined);

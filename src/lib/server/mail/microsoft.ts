@@ -9,6 +9,7 @@ export const MS_SCOPES = ['offline_access', 'openid', 'profile', 'email', 'User.
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const tenant = () => envOpt('MS_TENANT_ID') ?? 'common';
 const authority = () => `https://login.microsoftonline.com/${tenant()}/oauth2/v2.0`;
+/** Stays under /emails although the screen is Mailboxes now: it is the redirect URI registered in each Microsoft app. */
 export const msRedirectUri = () => `${env('ORIGIN').replace(/\/$/, '')}/emails/microsoft/callback`;
 
 export interface MsTokens { accessToken: string; refreshToken: string; expiresAt: number; scope?: string }
